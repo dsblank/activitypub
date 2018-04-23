@@ -2,8 +2,39 @@ import uuid
 import logging
 
 import tornado.escape
+import tornado.web
+import tornado.log
 from tornado.concurrent import Future
 from tornado import gen
+from passlib.hash import sha256_crypt as crypt
+
+class BaseHandler(tornado.web.RequestHandler):
+    def get_current_user(self):
+        user = self.get_secure_cookie("user")
+        if isinstance(user, bytes):
+            user = user.decode()
+        return user
+
+class LoginHandler(BaseHandler):
+    def get(self):
+        self.render('login.html')
+        
+    def post(self):
+        getusername = self.get_argument("username")
+        getpassword = self.get_argument("password")
+        user_data = self.application.get_user_data(getusername)
+        tornado.log.logging.info("user_data[password]=%s", user_data["password"])
+        tornado.log.logging.info("getpassword=%s", getpassword)
+        if user_data and user_data["password"] and crypt.verify(getpassword, user_data["password"]):
+            self.set_secure_cookie("user", self.get_argument("username"))
+            self.redirect(self.get_argument("next", self.reverse_url("home")))
+        else:
+            self.redirect(self.reverse_url("login"))
+
+class LogoutHandler(BaseHandler):
+    def get(self):
+        self.clear_cookie("user")
+        self.redirect(self.get_argument("next", self.reverse_url("home")))
 
 class MessageBuffer(object):
     def __init__(self):
@@ -43,11 +74,13 @@ class MessageBuffer(object):
         if len(self.cache) > self.cache_size:
             self.cache = self.cache[-self.cache_size:]
 
-class MainHandler(tornado.web.RequestHandler):
+class MainHandler(BaseHandler):
+    @tornado.web.authenticated
     def get(self):
         self.render("index.html", messages=self.application.message_buffer.cache)
 
-class MessageNewHandler(tornado.web.RequestHandler):
+class MessageNewHandler(BaseHandler):
+    @tornado.web.authenticated
     def post(self):
         message = {
             "id": str(uuid.uuid4()),
@@ -64,7 +97,8 @@ class MessageNewHandler(tornado.web.RequestHandler):
             self.write(message)
         self.application.message_buffer.new_messages([message])
 
-class MessageUpdatesHandler(tornado.web.RequestHandler):
+class MessageUpdatesHandler(BaseHandler):
+    @tornado.web.authenticated
     @gen.coroutine
     def post(self):
         cursor = self.get_argument("cursor", None)

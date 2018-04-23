@@ -22,6 +22,9 @@
                 <input type="hidden" name="next" value="{{ request.path }}">
                 {% module xsrf_form_html() %}
               </td>
+	      <td>
+		<a href="/logout">Logout</a>
+	      </td>
             </tr>
           </table>
         </form>
