@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="{{ static_url("chat.css") }}" type="text/css">
   </head>
   <body>
+    <a href="/logout">Logout</a>
     <div id="body">
       <div id="inbox">
         {% for message in messages %}
@@ -16,15 +17,14 @@
         <form action="/a/message/new" method="post" id="messageform">
           <table>
             <tr>
-              <td><input type="text" name="body" id="message" style="width:500px"></td>
-              <td style="padding-left:5px">
+              <td><input type="text" name="to_address" id="to_address" value="@apple"></td>
+              <td><input type="text" name="message_type" id="message_type" value="Note"></td>
+              <td><input type="text" name="body" id="message" style="width:100px"></td>
+              <td>
                 <input type="submit" value="{{ _("Post") }}">
                 <input type="hidden" name="next" value="{{ request.path }}">
                 {% module xsrf_form_html() %}
               </td>
-	      <td>
-		<a href="/logout">Logout</a>
-	      </td>
             </tr>
           </table>
         </form>

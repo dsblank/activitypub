@@ -21,7 +21,7 @@ APPLICATION_NAME = "ActivityPub"
 ### 2. The static/chat.js code
 ### 3. The template/*.html code
 
-class ActivityPubApplocation(tornado.web.Application):
+class ActivityPubApplication(tornado.web.Application):
     """
     """
     def __init__(self, *args, **kwargs):
@@ -32,6 +32,11 @@ class ActivityPubApplocation(tornado.web.Application):
         return {
             "password": crypt.hash(getusername),
             }
+
+    def handle_messages(self, messages):
+        for message in messages:
+            tornado.log.logging.info("handle_message: %s", message)
+        self.message_buffer.new_messages(messages)
 
 def make_url(path, handler, kwargs=None, name=None):
     #kwargs["options"] = options
@@ -51,7 +56,7 @@ def make_app():
                 template_filename = os.path.join(dirpath, filename)
                 tornado.log.logging.info("   watching: " + os.path.relpath(template_filename))
                 tornado.autoreload.watch(template_filename)
-    app = ActivityPubApplocation(
+    app = ActivityPubApplication(
         [
             make_url(r"/", MainHandler, name="home"),
             make_url(r'/login', LoginHandler, name="login"),

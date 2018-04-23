@@ -82,8 +82,11 @@ class MainHandler(BaseHandler):
 class MessageNewHandler(BaseHandler):
     @tornado.web.authenticated
     def post(self):
+        ## Figure out where messages should go to here
         message = {
             "id": str(uuid.uuid4()),
+            "to_address": self.get_argument("to_address"),
+            "message_type": self.get_argument("message_type"),
             "body": self.get_argument("body"),
             "html": "",
         }
@@ -95,12 +98,14 @@ class MessageNewHandler(BaseHandler):
             self.redirect(self.get_argument("next"))
         else:
             self.write(message)
-        self.application.message_buffer.new_messages([message])
+        ## If message should appear for this user:
+        self.application.handle_messages([message])
 
 class MessageUpdatesHandler(BaseHandler):
     @tornado.web.authenticated
     @gen.coroutine
     def post(self):
+        ## send info to javascript:
         cursor = self.get_argument("cursor", None)
         # Save the future returned by wait_for_messages so we can cancel
         # it in wait_for_messages
