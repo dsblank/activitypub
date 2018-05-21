@@ -1,5 +1,4 @@
 import uuid
-import logging
 
 import tornado.escape
 import tornado.web
@@ -9,6 +8,16 @@ from tornado import gen
 from passlib.hash import sha256_crypt as crypt
 
 class BaseHandler(tornado.web.RequestHandler):
+    def prepare(self):
+        super().prepare()
+        self.json_data = None
+        if self.request.headers.get("Content-Type") == "application/json":
+            if self.request.body:
+                try:
+                    self.json_data = tornado.escape.json_decode(self.request.body)
+                except ValueError:
+                    tornado.log.logging.info("unable to decode JSON data (%s)", self.request.body)
+
     def get_current_user(self):
         user = self.get_secure_cookie("user")
         if isinstance(user, bytes):
@@ -66,7 +75,7 @@ class MessageBuffer(object):
         future.set_result([])
 
     def new_messages(self, messages):
-        logging.info("Sending new message to %r listeners", len(self.waiters))
+        tornado.log.logging.info("Sending new message to %r listeners", len(self.waiters))
         for future in self.waiters:
             future.set_result(messages)
         self.waiters = set()
@@ -77,29 +86,35 @@ class MessageBuffer(object):
 class MainHandler(BaseHandler):
     @tornado.web.authenticated
     def get(self):
-        self.render("index.html", messages=self.application.message_buffer.cache)
+        user = self.get_current_user()
+        #messages = [message for message in self.application.message_buffer.cache
+        #            if message.get("to_address", "") == user]
+        messages = [message for message in self.application.message_buffer.cache]
+        tornado.log.logging.info("messages: %s", messages)
+        self.render("index.html", messages=messages, user=user)
 
 class MessageNewHandler(BaseHandler):
     @tornado.web.authenticated
     def post(self):
-        ## Figure out where messages should go to here
+        user = self.get_current_user()
         message = {
             "id": str(uuid.uuid4()),
             "to_address": self.get_argument("to_address"),
+            "from_address": self.get_argument("from_address"),
             "message_type": self.get_argument("message_type"),
             "body": self.get_argument("body"),
             "html": "",
         }
-        # to_basestring is necessary for Python 3's json encoder,
-        # which doesn't accept byte strings.
+        # message["html"] contains itself:
         message["html"] = tornado.escape.to_basestring(
-            self.render_string("message.html", message=message))
+            self.render_string("message.html", message=message, user=user))
+        ## Message goes to database:
+        self.application.handle_messages([message])
         if self.get_argument("next", None):
             self.redirect(self.get_argument("next"))
         else:
+            ## Sender gets the message back to handle:
             self.write(message)
-        ## If message should appear for this user:
-        self.application.handle_messages([message])
 
 class MessageUpdatesHandler(BaseHandler):
     @tornado.web.authenticated

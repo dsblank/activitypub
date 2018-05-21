@@ -32,15 +32,16 @@ $(document).ready(function() {
 });
 
 function newMessage(form) {
+    console.log("newMessage!");
     var message = form.formToDict();
     var disabled = form.find("input[type=submit]");
     disabled.disable();
-    $.postJSON("/a/message/new", message, function(response) {
-        updater.showMessage(response);
+    $.postJSON("/message/new", message, function(response) {
+        // updater.showMessage(response, "outgoing");
         if (message.id) {
             form.parent().remove();
         } else {
-            form.find("input[type=text]").val("").select();
+            form.find("input[name=body]").val("").select();
             disabled.enable();
         }
     });
@@ -49,6 +50,10 @@ function newMessage(form) {
 function getCookie(name) {
     var r = document.cookie.match("\\b" + name + "=([^;]*)\\b");
     return r ? r[1] : undefined;
+}
+
+function getUser() {
+    return document.getElementById("from_address").value;
 }
 
 jQuery.postJSON = function(url, args, callback) {
@@ -92,7 +97,7 @@ var updater = {
     poll: function() {
         var args = {"_xsrf": getCookie("_xsrf")};
         if (updater.cursor) args.cursor = updater.cursor;
-        $.ajax({url: "/a/message/updates", type: "POST", dataType: "text",
+        $.ajax({url: "/message/updates", type: "POST", dataType: "text",
                 data: $.param(args), success: updater.onSuccess,
                 error: updater.onError});
     },
@@ -115,22 +120,35 @@ var updater = {
     },
 
     newMessages: function(response) {
+	console.log("newMessages!");
         if (!response.messages) return;
         updater.cursor = response.cursor;
         var messages = response.messages;
         updater.cursor = messages[messages.length - 1].id;
         console.log(messages.length, "new messages, cursor:", updater.cursor);
+	console.log("response:", response);
+	var user = getUser();
         for (var i = 0; i < messages.length; i++) {
-            updater.showMessage(messages[i]);
+	    if (messages[i].to_address === user || messages[i].from_address === user) {
+		if (messages[i].to_address === user) {
+		    updater.showMessage(messages[i], "incoming");
+		} else {
+		    updater.showMessage(messages[i], "outgoing");
+		}
+	    } // else, don't show at all
         }
     },
 
-    showMessage: function(message) {
+    showMessage: function(message, mailbox) {
+	console.log("showMessage", message);
         var existing = $("#m" + message.id);
         if (existing.length > 0) return;
         var node = $(message.html);
         node.hide();
-        $("#inbox").append(node);
+	// make message; append it to queue
+	node.attr("class", mailbox);
+	console.log(node);
+        $("#queue").append(node);
         node.slideDown();
     }
 };

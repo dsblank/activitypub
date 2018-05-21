@@ -1,1 +1,9 @@
-<div class="message" id="m{{ message["id"] }}">{% module linkify(message["body"]) %}</div>
+{% if user == message["to_address"] %}
+<div class="incoming">
+{% else %}
+<div class="outgoing">
+{% end %}
+  <div> <b>To</b>: {{ message["to_address"] }} </div>
+  <div> <b>From</b>: {{ message["from_address"] }} </div>
+  <div> {% module linkify(message["body"]) %} </div>
+</div>

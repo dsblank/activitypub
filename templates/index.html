@@ -8,16 +8,19 @@
   <body>
     <a href="/logout">Logout</a>
     <div id="body">
-      <div id="inbox">
-        {% for message in messages %}
-          {% module Template("message.html", message=message) %}
-        {% end %}
+      <div id="queue">
+	{% for message in messages %}
+	  {% if message["to_address"] == user or message["from_address"] == user %}
+              {% module Template("message.html", message=message, user=user) %}
+	  {% end %}
+      {% end %}
       </div>
       <div id="input">
-        <form action="/a/message/new" method="post" id="messageform">
+        <form action="/message/new" method="post" id="messageform">
           <table>
             <tr>
-              <td><input type="text" name="to_address" id="to_address" value="@apple"></td>
+              <td><input type="text" name="to_address" id="to_address" value=""></td>
+              <td><input type="text" name="from_address" id="from_address" value="{{ user }}"></td>
               <td><input type="text" name="message_type" id="message_type" value="Note"></td>
               <td><input type="text" name="body" id="message" style="width:100px"></td>
               <td>

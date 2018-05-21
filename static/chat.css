@@ -46,8 +46,14 @@ td {
   margin-top: 0.5em;
 }
 
-#inbox .message {
-  padding-top: 0.25em;
+#queue .incoming {
+    padding-top: 0.25em;
+    text-align: right;
+}
+
+#queue .outgoing {
+    padding-top: 0.25em;
+    text-align: left;
 }
 
 #nav {
