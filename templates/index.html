@@ -19,9 +19,9 @@
         <form action="/message/new" method="post" id="messageform">
           <table>
             <tr>
-              <td><input type="text" name="to_address" id="to_address" value=""></td>
-              <td><input type="text" name="from_address" id="from_address" value="{{ user }}"></td>
-              <td><input type="text" name="message_type" id="message_type" value="Note"></td>
+              <td>To: <input type="text" name="to_address" id="to_address" value=""></td>
+              <td><input type="hidden" name="from_address" id="from_address" value="{{ user }}"></td>
+              <td><input type="hidden" name="message_type" id="message_type" value="Note"></td>
               <td><input type="text" name="body" id="message" style="width:100px"></td>
               <td>
                 <input type="submit" value="{{ _("Post") }}">
