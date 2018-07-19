@@ -2,32 +2,7 @@ import re
 import ast
 import json
 
-class Result():
-    def __init__(self, result):
-        self.result = result
-
-    def count(self):
-        return len(self.result)
-
-    def sort(self, sort_key, sort_order):
-        # sort_key = "_id"
-        # sort_order = 1 or -1
-        return Result(sorted(
-            self.result,
-            key=lambda row: get_item_in_dict(self.result, sort_key),
-            reverse=sort_order == -1))
-
-    def __getitem__(self, item):
-        return self.result[item]
-
-    def __len__(self):
-        return len(self.result)
-
-    def __str__(self):
-        return str(self.result)
-
-    def __repr__(self):
-        return repr(self.result)
+from .bson import ObjectId
 
 class Table():
     """
@@ -83,9 +58,9 @@ def is_match(lhs, rhs):
     True
     >>> is_match(12, 13)
     False
-    >>> is_match(12, {"$lt": 11})
+    >>> is_match(11, {"$lt": 12})
     True
-    >>> is_match(12, {"$lt": 13})
+    >>> is_match(13, {"$lt": 12})
     False
     >>> is_match({"a1": 1, "a2": 2, "b3": 3}, {"$regex": "^a"})
     True
@@ -100,17 +75,28 @@ def is_match(lhs, rhs):
             if item == "$regex":
                 matched = any([key for key in lhs if re.match(rhs[item], key)])
             elif item == "$lt":
-                matched = rhs[item] < lhs
+                matched = lhs < rhs[item]
             elif item == "$gt":
-                matched = rhs[item] > lhs
+                matched = lhs > rhs[item]
+            elif item == "$in":
+                if isinstance(lhs, list):
+                    matched = any([left for left in lhs if left in rhs[item]])
+                else:
+                    matched = lhs in rhs[item]
             else:
                 raise Exception("unknown operator: %s" % item)
             if not matched:
                 return False
         return matched
     else:
-        return lhs == rhs
-    
+        if isinstance(lhs, list):
+            if isinstance(rhs, list):
+                return lhs == rhs
+            else:
+                return rhs in lhs
+        else:
+            return lhs == rhs
+
 def match(doc, query):
     """
     Does a dictionary match a (possibly-nested) query/dict?
@@ -158,15 +144,34 @@ def match(doc, query):
             if not matched:
                 return False
     return True
-        
+
 class ListTable(Table):
-    ID = 1
-    def __init__(self, database=None, name=None):
+    def __init__(self, database=None, name=None, data=None):
         super().__init__(database, name)
-        self.data = []
+        self.data = data or []
+
+    def __getitem__(self, item):
+        return self.data[item]
+
+    def __len__(self):
+        return len(self.data)
+
+    def __str__(self):
+        return str(self.data)
+
+    def __repr__(self):
+        return repr(self.data)
 
     def drop(self):
         self.data = []
+
+    def sort(self, sort_key, sort_order):
+        # sort_key = "_id"
+        # sort_order = 1 or -1
+        return ListTable(data=sorted(
+            self.data,
+            key=lambda row: get_item_in_dict(row, sort_key),
+            reverse=(sort_order == -1)))
 
     def insert_one(self, row):
         """
@@ -195,35 +200,40 @@ class ListTable(Table):
         >>> table.find({"c": 1, "d": 2}).count()
         2
         """
-        row["_id"] = self.ID
-        self.ID += 1
+        if row.get("_id", None) is None:
+            row["_id"] = ObjectId()
         self.data.append(row)
 
-    def find(self, query=None):
+    def find(self, query=None, limit=None):
         """
         >>> table = ListTable()
         >>> table.insert_one({"a": 1, "b": 2})
-        >>> table.find({"a": 1})
-        [{'a': 1, 'b': 2, '_id': 1}]
+        >>> table.find({"a": 1}) # doctest: +ELLIPSIS
+        [{'a': 1, 'b': 2, '_id': ObjectId('...')}]
         >>> table.find({"a": 2})
         []
         """
-        if query:
-            return Result([doc for doc in self.data if match(doc, query)])
+        if query is not None:
+            if limit is not None:
+                return ListTable(data=[doc for doc in self.data if match(doc, query)][:limit])
+            else:
+                return ListTable(data=[doc for doc in self.data if match(doc, query)])
+        elif limit is not None:
+                return ListTable(data=self.data[:limit])
         else:
-            return Result(self.data)
+            return self
 
     def remove(self, query=None):
         """
         >>> table = ListTable()
         >>> table.insert_one({"a": 1, "b": 2})
         >>> table.insert_one({"c": 3, "d": 4})
-        >>> table.find({"a": 1})
-        [{'a': 1, 'b': 2, '_id': 1}]
+        >>> table.find({"a": 1}) # doctest: +ELLIPSIS
+        [{'a': 1, 'b': 2, '_id': ObjectId('...')}]
         >>> table.find({"a": 2})
         []
-        >>> table.find({"d": 4})
-        [{'c': 3, 'd': 4, '_id': 2}]
+        >>> table.find({"d": 4}) # doctest: +ELLIPSIS
+        [{'c': 3, 'd': 4, '_id': ObjectId('...')}]
         """
         if query:
             items = [doc for doc in self.data if match(doc, query)]
@@ -252,13 +262,15 @@ class ListTable(Table):
             for item in items:
                 pass
                 #if item == "$set":
-                #elif item == "$inc": 
+                #elif item == "$inc":
 
     def count(self, query=None):
         if query:
             return len([doc for doc in self.data if match(doc, query)])
         else:
             return len(self.data)
+
+    count_documents = count
 
 class Database():
     def __init__(self, Table):
@@ -271,4 +283,3 @@ class Database():
 class ListDatabase(Database):
     def __init__(self):
         super().__init__(ListTable)
-
