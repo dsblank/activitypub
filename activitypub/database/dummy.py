@@ -251,11 +251,61 @@ class DummyTable(Table):
 
     def update_one(self, query, items, upsert=False):
         results = [doc for doc in self.data if match(doc, query)]
+        if len(results) > 0:
+            self.process_updates(results[:1], items)
+
+    def process_updates(self, results, items):
+        """
+        results is rows of matched data (dicts)
+        items are things like:
+
+        * {'$set': {'meta.deleted': True}}
+        * {'$set': {'meta.undo': True, 'meta.exta': 'object deleted'}}
+        * {'$inc': {'meta.count_reply': -1, 'meta.count_direct_reply': -1}}
+
+        >>> db = DummyDatabase()
+        >>> db.actors.insert_one({'meta': {'deleted': True}})
+        >>> len(db.actors.find({'meta.deleted': True}))
+        1
+        >>> db.actors.process_updates(db.actors.data,
+        ...              {"$set": {'meta.deleted': False}})
+        >>> len(db.actors.find({'meta.deleted': True}))
+        0
+        >>> len(db.actors.find({'meta.deleted': False}))
+        1
+
+        >>> db = DummyDatabase()
+        >>> db.actors.insert_one({'meta': {'count': 0}})
+        >>> db.actors.find()[0]["meta"]["count"]
+        0
+        >>> db.actors.process_updates(db.actors.data,
+        ...              {"$inc": {'meta.count': +1}})
+        >>> db.actors.find()[0]["meta"]["count"]
+        1
+        >>> db.actors.process_updates(db.actors.data,
+        ...              {"$inc": {'meta.count': +1}})
+        >>> db.actors.find()[0]["meta"]["count"]
+        2
+        >>> db.actors.process_updates(db.actors.data,
+        ...              {"$inc": {'meta.count': -1}})
+        >>> db.actors.find()[0]["meta"]["count"]
+        1
+        """
         for result in results:
-            for item in items:
-                pass
-                #if item == "$set":
-                #elif item == "$inc":
+            for item in items: # key
+                if item == "$set":
+                    for thing in items[item]: # keys of the $set
+                        value = items[item][thing]
+                        set_item_in_dict(result, thing, value)
+                elif item == "$inc":
+                    for thing in items[item]:
+                        old_value = get_item_in_dict(result, thing)
+                        incr = items[item][thing]
+                        set_item_in_dict(result, thing, old_value + incr)
+
+    def update(self, query, items, upsert=False):
+        results = [doc for doc in self.data if match(doc, query)]
+        self.process_updates(results, items)
 
     def count(self, query=None):
         if query:
@@ -268,3 +318,14 @@ class DummyTable(Table):
 class DummyDatabase(Database):
     def __init__(self):
         super().__init__(DummyTable)
+
+"""
+process_updates: [{'box': 'outbox', 'activity': {'type': 'Create', 'actor': 'http://localhost:5005', 'object': {'type': 'Note', 'sensitive': False, 'attributedTo': 'http://localhost:5005', 'cc': ['http://localhost:5005/followers'], 'to': ['https://www.w3.org/ns/activitystreams#Public'], 'content': '<p>2</p>', 'tag': [], 'published': '2018-07-19T17:23:22Z', 'id': 'http://localhost:5005/outbox/75b40a6f5c319bdf/activity', 'url': 'http://localhost:5005/note/75b40a6f5c319bdf'}, '@context': ['https://www.w3.org/ns/activitystreams', 'https://w3id.org/security/v1', {'Hashtag': 'as:Hashtag', 'sensitive': 'as:sensitive'}], 'published': '2018-07-19T17:23:22Z', 'to': ['https://www.w3.org/ns/activitystreams#Public'], 'cc': ['http://localhost:5005/followers'], 'id': 'http://localhost:5005/outbox/75b40a6f5c319bdf'}, 'type': ['Create'], 'remote_id': 'http://localhost:5005/outbox/75b40a6f5c319bdf', 'meta': {'undo': False, 'deleted': False}, '_id': ObjectId('5b50c90a1342a3318e13d434'), '_requested': True}]
+
+{'$set': {'meta.deleted': True}}
+
+done! [{'box': 'outbox', 'activity': {'type': 'Create', 'actor': 'http://localhost:5005', 'object': {'type': 'Note', 'sensitive': False, 'attributedTo': 'http://localhost:5005', 'cc': ['http://localhost:5005/followers'], 'to': ['https://www.w3.org/ns/activitystreams#Public'], 'content': '<p>2</p>', 'tag': [], 'published': '2018-07-19T17:23:22Z', 'id': 'http://localhost:5005/outbox/75b40a6f5c319bdf/activity', 'url': 'http://localhost:5005/note/75b40a6f5c319bdf'}, '@context': ['https://www.w3.org/ns/activitystreams', 'https://w3id.org/security/v1', {'Hashtag': 'as:Hashtag', 'sensitive': 'as:sensitive'}], 'published': '2018-07-19T17:23:22Z', 'to': ['https://www.w3.org/ns/activitystreams#Public'], 'cc': ['http://localhost:5005/followers'], 'id': 'http://localhost:5005/outbox/75b40a6f5c319bdf'}, 'type': ['Create'], 'remote_id': 'http://localhost:5005/outbox/75b40a6f5c319bdf', 'meta': {'undo': False, 'deleted': False}, '_id': ObjectId('5b50c90a1342a3318e13d434'), '_requested': True, 'm': 'e'}]
+
+process_updates: [] {'$set': {'meta.undo': True, 'meta.exta': 'object deleted'}}
+done! []
+"""

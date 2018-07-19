@@ -2,6 +2,25 @@ from pymongo import MongoClient
 
 from .base import Database, Table
 
+class Log():
+    """
+    For debugging only. See below.
+    """
+    def __init__(self, item):
+        self.__dict__["item"] = item
+
+    def __getattr__(self, attr):
+        return getattr(self.item, attr)
+
+    def __setattr__(self, attr, value):
+        setattr(self.item, attr, value)
+
+    def __call__(self, *args, **kwargs):
+        print("calling:", self.item, args, kwargs)
+        result = self.item(*args, **kwargs)
+        print("result:", result)
+        return result
+
 class MongoTable(Table):
     """
     """
@@ -11,6 +30,7 @@ class MongoTable(Table):
 
     def __getattr__(self, attr):
         if "collection" in self.__dict__:
+            #return Log(getattr(self.collection, attr))
             return getattr(self.collection, attr)
         else:
             raise AttributeError("no such attribute: %s" % attr)
