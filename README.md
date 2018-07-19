@@ -9,7 +9,8 @@ This module is designed to be a generally useful ActivityPub library in Python. 
 The first two levels can be used indpendently, or together. They can best be used toegether using a Manager:
 
 ```python
->>> from activitypub import DummyDatabase, Manager
+>>> from activitypub import Manager
+>>> from activitypub.database import DummyDatabase
 >>> db = DummyDatabase()
 >>> manager = Manager(database=db)
 >>> p = manager.Person(id="alyssa")

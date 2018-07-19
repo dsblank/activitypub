@@ -147,8 +147,9 @@ class ObjectId(object):
         >>> import datetime
         >>> gen_time = datetime.datetime(2010, 1, 1)
         >>> early = ObjectId.from_datetime(gen_time)
-        >>> from activitypub import Manager, ListDatabase
-        >>> m = Manager(database=ListDatabase())
+        >>> from activitypub import Manager
+        >>> from activitypub.database import DummyDatabase
+        >>> m = Manager(database=DummyDatabase())
         >>> n = m.Note(_id=early, attributedTo="alyssa")
         >>> m.database.activities.insert_one(n.to_dict())
         >>> gen_time = datetime.datetime(2011, 1, 1)

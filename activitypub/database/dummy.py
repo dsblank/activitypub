@@ -2,15 +2,8 @@ import re
 import ast
 import json
 
-from .bson import ObjectId
-
-class Table():
-    """
-    Base table class.
-    """
-    def __init__(self, database=None, name=None):
-        self.database = database
-        self.name = name
+from ..bson import ObjectId
+from .base import Database, Table
 
 def get_item_in_dict(dictionary, item):
     """
@@ -145,7 +138,7 @@ def match(doc, query):
                 return False
     return True
 
-class ListTable(Table):
+class DummyTable(Table):
     def __init__(self, database=None, name=None, data=None):
         super().__init__(database, name)
         self.data = data or []
@@ -168,14 +161,14 @@ class ListTable(Table):
     def sort(self, sort_key, sort_order):
         # sort_key = "_id"
         # sort_order = 1 or -1
-        return ListTable(data=sorted(
+        return DummyTable(data=sorted(
             self.data,
             key=lambda row: get_item_in_dict(row, sort_key),
             reverse=(sort_order == -1)))
 
     def insert_one(self, row):
         """
-        >>> table = ListTable()
+        >>> table = DummyTable()
         >>> table.count()
         0
         >>> len(table.data)
@@ -206,7 +199,7 @@ class ListTable(Table):
 
     def find(self, query=None, limit=None):
         """
-        >>> table = ListTable()
+        >>> table = DummyTable()
         >>> table.insert_one({"a": 1, "b": 2})
         >>> table.find({"a": 1}) # doctest: +ELLIPSIS
         [{'a': 1, 'b': 2, '_id': ObjectId('...')}]
@@ -215,17 +208,17 @@ class ListTable(Table):
         """
         if query is not None:
             if limit is not None:
-                return ListTable(data=[doc for doc in self.data if match(doc, query)][:limit])
+                return DummyTable(data=[doc for doc in self.data if match(doc, query)][:limit])
             else:
-                return ListTable(data=[doc for doc in self.data if match(doc, query)])
+                return DummyTable(data=[doc for doc in self.data if match(doc, query)])
         elif limit is not None:
-                return ListTable(data=self.data[:limit])
+                return DummyTable(data=self.data[:limit])
         else:
             return self
 
     def remove(self, query=None):
         """
-        >>> table = ListTable()
+        >>> table = DummyTable()
         >>> table.insert_one({"a": 1, "b": 2})
         >>> table.insert_one({"c": 3, "d": 4})
         >>> table.find({"a": 1}) # doctest: +ELLIPSIS
@@ -272,14 +265,6 @@ class ListTable(Table):
 
     count_documents = count
 
-class Database():
-    def __init__(self, Table):
-        self.activities = Table(self, "activities")
-        self.u2f = Table(self, "u2f")
-        self.instances = Table(self, "instances")
-        self.actors = Table(self, "actors")
-        self.indieauth = Table(self, "indieauth")
-
-class ListDatabase(Database):
+class DummyDatabase(Database):
     def __init__(self):
-        super().__init__(ListTable)
+        super().__init__(DummyTable)

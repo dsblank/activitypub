@@ -1,2 +1,2 @@
-from .classes import Manager
-from .database import Database, ListDatabase
+from .manager import Manager
+from .classes import *
