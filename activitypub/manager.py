@@ -11,6 +11,8 @@ class Manager():
     >>> manager = Manager(database=db)
     >>>
     """
+    app_name = "activitypub"
+    version = "1.0.0"
     def __init__(self, context=None, defaults=None, database=None):
         from .classes import ActivityPubBase
         self.callback = lambda box, activity_id: None
@@ -53,6 +55,54 @@ class Manager():
             "Note.id": "$attributedTo/note/$id",
         }
 
+    def user_agent(self):
+        return "%s (%s/%s; +%s)" % (requests.utils.default_user_agent(),
+                                    self.app_name,
+                                    self.version,
+                                    self.expand_defaults("$SCHEME/$HOST"))
+
+    def expand_defaults(self, obj, string):
+        """
+        Expand a string with defaults.
+        """
+        for key in self.defaults:
+            if key.startswith("$"):
+                if callable(self.defaults[key]):
+                    string = string.replace(key, self.defaults[key]())
+                else:
+                    string = string.replace(key, self.defaults[key])
+        for key in self.parse(string):
+            if key.startswith("$"):
+                if getattr(obj, "ap_" + key[1:]) is None:
+                    raise Exception("expansion requires %s" % key[1:])
+                string = string.replace(key, getattr(obj, "ap_" + key[1:]))
+        return string
+
+    def parse(self, string):
+        """
+        Parse a string delimited by non-alpha, non-$ symbols.
+
+        >>> from activitypub import Manager
+        >>> m = Manager()
+        >>> m.parse("apple/banana/$variable")
+        ['apple', 'banana', '$variable']
+        """
+        retval = []
+        current = []
+        for s in string:
+            if s.isalpha() or (s in ["$"] and len(current) == 0):
+                current.append(s)
+            else:
+                if current:
+                    retval.append("".join(current))
+                    if s == "$":
+                        current = ["$"]
+                    else:
+                        current = []
+        if current:
+            retval.append("".join(current))
+        return retval
+
     def from_dict(self, data):
         from .classes import ActivityPubBase
         return ActivityPubBase.from_dict(data)
@@ -65,6 +115,8 @@ class Manager():
     def on_post_to_box(self, box, activity):
         """
         manager.on_post_to_box("inbox", activity)
+        manager.on_post_to_box("outbox", activity)
+        manager.on_post_to_box("replies", reply)
         """
         self.database.activities.insert_one(
             {
@@ -109,4 +161,35 @@ class Manager():
         }
         return [doc["activity"]["object"]
                 for doc in self.database.activities.find(q)]
+
+    def get_iri(self, iri):
+        if iri.startswith(self.expand_defaults("$SCHEME/$HOST")):
+            ## get from table
+            ## self.database.activity.find()
+            ## TODO: WIP
+            pass
+        else:
+            try:
+                response = requests.get(
+                    iri,
+                    headers={
+                        "User-Agent": self.user_agent(),
+                        "Accept": "application/activity+json",
+                    },
+                    timeout=10,
+                    allow_redirects=False,
+                    **kwargs)
+            except:
+                raise Exception("unable to fetch uri")
+            return self.handle(response)
+
+    def handle_response(self, response):
+        if response.status_code == 404:
+            raise Exception("iri is not found")
+        elif response.status_code == 410:
+            raise Exception("iri is gone")
+        elif response.status_code in [500, 502, 503]:
+            raise Exception("unable to fetch; server error")
+        response.raise_for_status()
+        return response.json()
 

@@ -33,7 +33,7 @@ class ActivityPubBase():
                 if attr_name.startswith("ap_"):
                     attr = getattr(self, attr_name)
                     if isinstance(attr, str) and "$" in attr:
-                        dependencies[attr_name[3:]] = {x[1:] for x in self.parse(attr)
+                        dependencies[attr_name[3:]] = {x[1:] for x in self.manager.parse(attr)
                                                        if x.startswith("$") and x[1:] != attr_name[3:]}
             ## Now, replace them in order:
             for attr_name in self.topological_sort(dependencies):
@@ -46,7 +46,7 @@ class ActivityPubBase():
                 if attr is None:
                     raise Exception("variable depends on field that is empty: %s" % attr_name)
                 if isinstance(attr, str) and "$" in attr:
-                    setattr(self, attr_name, self.expand_defaults(attr))
+                    setattr(self, attr_name, self.manager.expand_defaults(attr))
 
     def topological_sort(self, data):
         """
@@ -70,49 +70,6 @@ class ActivityPubBase():
             data = {item: (dep - ordered)
                     for item, dep in data.items()
                     if item not in ordered}
-
-    def parse(self, string):
-        """
-        Parse a string delimited by non-alpha, non-$ symbols.
-
-        >>> from activitypub import Manager
-        >>> m = Manager()
-        >>> p = m.Person()
-        >>> p.parse("apple/banana/$variable")
-        ['apple', 'banana', '$variable']
-        """
-        retval = []
-        current = []
-        for s in string:
-            if s.isalpha() or (s in ["$"] and len(current) == 0):
-                current.append(s)
-            else:
-                if current:
-                    retval.append("".join(current))
-                    if s == "$":
-                        current = ["$"]
-                    else:
-                        current = []
-        if current:
-            retval.append("".join(current))
-        return retval
-
-    def expand_defaults(self, string):
-        """
-        Expand a string with defaults.
-        """
-        for key in self.manager.defaults:
-            if key.startswith("$"):
-                if callable(self.manager.defaults[key]):
-                    string = string.replace(key, self.manager.defaults[key]())
-                else:
-                    string = string.replace(key, self.manager.defaults[key])
-        for key in self.parse(string):
-            if key.startswith("$"):
-                if getattr(self, "ap_" + key[1:]) is None:
-                    raise Exception("expansion requires %s" % key[1:])
-                string = string.replace(key, getattr(self, "ap_" + key[1:]))
-        return string
 
     def to_dict(self):
         """

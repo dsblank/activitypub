@@ -194,9 +194,10 @@ class DummyTable(Table):
         >>> table.find({"c": 1, "d": 2}).count()
         2
         """
+        row = copy.deepcopy(row) # expensive, but prevents errors
         if row.get("_id", None) is None:
             row["_id"] = ObjectId()
-        self.data.append(copy.deepcopy(row))
+        self.data.append(row)
 
     def find(self, query=None, limit=None):
         """
