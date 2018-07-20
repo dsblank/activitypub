@@ -1,6 +1,7 @@
 import re
 import ast
 import json
+import copy
 
 from ..bson import ObjectId
 from .base import Database, Table
@@ -195,7 +196,7 @@ class DummyTable(Table):
         """
         if row.get("_id", None) is None:
             row["_id"] = ObjectId()
-        self.data.append(row)
+        self.data.append(copy.deepcopy(row))
 
     def find(self, query=None, limit=None):
         """
@@ -253,6 +254,10 @@ class DummyTable(Table):
         results = [doc for doc in self.data if match(doc, query)]
         if len(results) > 0:
             self.process_updates(results[:1], items)
+        elif upsert: ## update and insert
+            self.insert_one(query)
+            results = self.find(query)
+            self.process_updates(results, items)
 
     def process_updates(self, results, items):
         """
@@ -304,8 +309,26 @@ class DummyTable(Table):
                         set_item_in_dict(result, thing, old_value + incr)
 
     def update(self, query, items, upsert=False):
+        """
+        >>> db = DummyDatabase()
+        >>> q = {"id": "XXX", "test": 42}
+        >>> db.actors.update(q, {"$inc": {"test": +1}}, upsert=False)
+        >>> len(db.actors.find(q))
+        0
+        >>> db.actors.update(q, {"$inc": {"test": +1}}, upsert=True)
+        >>> len(db.actors.find(q))
+        0
+        >>> q = {"id": "XXX", "test": 43}
+        >>> len(db.actors.find(q))
+        1
+        """
         results = [doc for doc in self.data if match(doc, query)]
-        self.process_updates(results, items)
+        if len(results) > 0:
+            self.process_updates(results, items)
+        elif upsert: # update and insert
+            self.insert_one(query)
+            results = self.find(query)
+            self.process_updates(results, items)
 
     def count(self, query=None):
         if query:
