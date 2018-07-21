@@ -1,3 +1,5 @@
+import binascii
+import os
 import uuid
 
 class Manager():
@@ -5,7 +7,7 @@ class Manager():
     Manager class that ties together ActivityPub objects, defaults,
     and a database.
 
-    >>> from activitypub import Manager
+    >>> from activitypub.manager import Manager
     >>> from activitypub.database import DummyDatabase
     >>> db = DummyDatabase()
     >>> manager = Manager(database=db)
@@ -14,7 +16,7 @@ class Manager():
     app_name = "activitypub"
     version = "1.0.0"
     def __init__(self, context=None, defaults=None, database=None):
-        from .classes import ActivityPubBase
+        from ..classes import ActivityPubBase
         self.callback = lambda box, activity_id: None
         self.context = context
         self.defaults = defaults or self.make_defaults()
@@ -61,7 +63,7 @@ class Manager():
                                     self.version,
                                     self.expand_defaults("$SCHEME/$HOST"))
 
-    def expand_defaults(self, obj, string):
+    def expand_defaults(self, string, obj=None):
         """
         Expand a string with defaults.
         """
@@ -71,18 +73,19 @@ class Manager():
                     string = string.replace(key, self.defaults[key]())
                 else:
                     string = string.replace(key, self.defaults[key])
-        for key in self.parse(string):
-            if key.startswith("$"):
-                if getattr(obj, "ap_" + key[1:]) is None:
-                    raise Exception("expansion requires %s" % key[1:])
-                string = string.replace(key, getattr(obj, "ap_" + key[1:]))
+        if obj:
+            for key in self.parse(string):
+                if key.startswith("$"):
+                    if getattr(obj, "ap_" + key[1:]) is None:
+                        raise Exception("expansion requires %s" % key[1:])
+                    string = string.replace(key, getattr(obj, "ap_" + key[1:]))
         return string
 
     def parse(self, string):
         """
         Parse a string delimited by non-alpha, non-$ symbols.
 
-        >>> from activitypub import Manager
+        >>> from activitypub.manager import Manager
         >>> m = Manager()
         >>> m.parse("apple/banana/$variable")
         ['apple', 'banana', '$variable']
@@ -104,7 +107,7 @@ class Manager():
         return retval
 
     def from_dict(self, data):
-        from .classes import ActivityPubBase
+        from ..classes import ActivityPubBase
         return ActivityPubBase.from_dict(data)
 
     def to_list(self, item):
@@ -193,3 +196,45 @@ class Manager():
         response.raise_for_status()
         return response.json()
 
+    def get_secret_key(self, name):
+        filename = "%s.key" % name
+        if not os.path.exists():
+            key = binascii.hexlify(os.urandom(32)).decode("utf-8")
+            with open(filename, "w+") as f:
+                f.write(key)
+            return key
+        else:
+            with open(key_path) as f:
+                return f.read()
+
+    def get_rsa_key(self, owner, user, domain):
+        """"
+        Loads or generates an RSA key.
+        """
+        k = Key(owner)
+        user = user.replace(".", "_")
+        domain = domain.replace(".", "_")
+        key_path = os.path.join(KEY_DIR, f"key_{user}_{domain}.pem")
+        if os.path.isfile(key_path):
+            with open(key_path) as f:
+                privkey_pem = f.read()
+                k.load(privkey_pem)
+        else:
+            k.new()
+            with open(key_path, "w") as f:
+                f.write(k.privkey_pem)
+        return k
+
+    def after_request(self, f):
+        """
+        Decorator
+        """
+        return f
+
+    def template_filter(self):
+        """
+        Decorator
+        """
+        def decorator(f):
+            return f
+        return decorator

@@ -147,7 +147,7 @@ class ObjectId(object):
         >>> import datetime
         >>> gen_time = datetime.datetime(2010, 1, 1)
         >>> early = ObjectId.from_datetime(gen_time)
-        >>> from activitypub import Manager
+        >>> from activitypub.manager import Manager
         >>> from activitypub.database import DummyDatabase
         >>> m = Manager(database=DummyDatabase())
         >>> n = m.Note(_id=early, attributedTo="alyssa")

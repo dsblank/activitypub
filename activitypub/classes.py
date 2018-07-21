@@ -46,12 +46,12 @@ class ActivityPubBase():
                 if attr is None:
                     raise Exception("variable depends on field that is empty: %s" % attr_name)
                 if isinstance(attr, str) and "$" in attr:
-                    setattr(self, attr_name, self.manager.expand_defaults(attr))
+                    setattr(self, attr_name, self.manager.expand_defaults(attr, self))
 
     def topological_sort(self, data):
         """
 
-        >>> from activitypub import Manager
+        >>> from activitypub.manager import Manager
         >>> manager = Manager()
         >>> manager.Person(id="alyssa").to_dict()
         {'@context': 'https://www.w3.org/ns/activitystreams', 'endpoints': {}, 'followers': 'https://example.com/alyssa/followers', 'following': 'https://example.com/alyssa/following', 'id': 'https://example.com/alyssa', 'inbox': 'https://example.com/alyssa/inbox', 'liked': 'https://example.com/alyssa/liked', 'likes': 'https://example.com/alyssa/likes', 'outbox': 'https://example.com/alyssa/outbox', 'type': 'Person', 'url': 'https://example.com/alyssa'}
@@ -184,7 +184,7 @@ class Organization(Actor):
 
 class Person(Actor):
     """
-    >>> from activitypub import Manager
+    >>> from activitypub.manager import Manager
     >>> m = Manager()
     >>> p = m.Person()
     >>> p.icon = "image.svg"
