@@ -157,7 +157,7 @@ class DummyTable(Table):
         return repr(self.data)
 
     def drop(self):
-        self.data = []
+        self.data.clear()
 
     def sort(self, sort_key, sort_order):
         # sort_key = "_id"

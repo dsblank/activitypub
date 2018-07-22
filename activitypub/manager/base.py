@@ -15,6 +15,7 @@ class Manager():
     """
     app_name = "activitypub"
     version = "1.0.0"
+    key_path = "./keys"
     def __init__(self, context=None, defaults=None, database=None):
         from ..classes import ActivityPubBase
         self.callback = lambda box, activity_id: None
@@ -196,45 +197,43 @@ class Manager():
         response.raise_for_status()
         return response.json()
 
-    def get_secret_key(self, name):
-        filename = "%s.key" % name
-        if not os.path.exists():
+    def load_secret_key(self, name):
+        key = self._load_secret_key(name)
+        ## Override to do something with secret key
+
+    def _load_secret_key(self, name):
+        """
+        Load or create a secret key for name.
+        """
+        filename = os.path.join(self.key_path, "%s.key" % name)
+        if not os.path.exists(filename):
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
             key = binascii.hexlify(os.urandom(32)).decode("utf-8")
             with open(filename, "w+") as f:
                 f.write(key)
-            return key
         else:
-            with open(key_path) as f:
-                return f.read()
+            with open(filename) as f:
+                key = f.read()
+        return key
 
-    def get_rsa_key(self, owner, user, domain):
-        """"
-        Loads or generates an RSA key.
-        """
-        k = Key(owner)
-        user = user.replace(".", "_")
-        domain = domain.replace(".", "_")
-        key_path = os.path.join(KEY_DIR, f"key_{user}_{domain}.pem")
-        if os.path.isfile(key_path):
-            with open(key_path) as f:
-                privkey_pem = f.read()
-                k.load(privkey_pem)
-        else:
-            k.new()
-            with open(key_path, "w") as f:
-                f.write(k.privkey_pem)
-        return k
-
-    def after_request(self, f):
+    def after_request(self, function):
         """
         Decorator
         """
-        return f
+        return function
+
+    def login_required(self, function):
+        """
+        Decorator
+        """
+        ## decorate function here
+        return function
 
     def template_filter(self):
         """
         Decorator
         """
-        def decorator(f):
-            return f
+        def decorator(function):
+            return function
         return decorator
+
