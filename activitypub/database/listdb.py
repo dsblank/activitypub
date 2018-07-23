@@ -6,46 +6,6 @@ import copy
 from ..bson import ObjectId
 from .base import Database, Table
 
-def get_item_in_dict(dictionary, item):
-    """
-    Get dictionary item from a dotted-word.
-
-    >>> get_item_in_dict({"x": 1}, "x")
-    1
-    >>> get_item_in_dict({"x": {"y": 42}}, "x.y")
-    42
-    """
-    current = dictionary
-    for word in item.split("."):
-        if word in current:
-            current = current[word]
-        else:
-            return None
-    return current
-
-def set_item_in_dict(dictionary, item, value):
-    """
-    Set dictionary item from a dotted-word.
-
-    >>> d = {"x": 1}
-    >>> get_item_in_dict(d, "x")
-    1
-    >>> set_item_in_dict(d, "x", 2)
-    >>> get_item_in_dict(d, "x")
-    2
-    >>> d2 = {"x": {"y": 42}}
-    >>> get_item_in_dict(d2, "x.y")
-    42
-    >>> set_item_in_dict(d2, "x.y", 43)
-    >>> get_item_in_dict(d2, "x.y")
-    43
-    """
-    current = dictionary
-    words = item.split(".")
-    for word in words[:-1]:
-        current = current[word]
-    current[words[-1]] = value
-
 def is_match(lhs, rhs):
     """
     >>> is_match(12, 12)
@@ -91,61 +51,19 @@ def is_match(lhs, rhs):
         else:
             return lhs == rhs
 
-def match(doc, query):
-    """
-    Does a dictionary match a (possibly-nested) query/dict?
-
-    query is a dictionary of dotted words or query operations.
-
-    >>> match({"x": 42}, {"x": 42})
-    True
-    >>> match({"x": 42}, {"x": 43})
-    False
-    >>> match({"x": {"y": 5}}, {"x.y": 5})
-    True
-    >>> match({"x": {"y": 5}}, {"x.y": 4})
-    False
-    >>> activity = {"name": "Joe"}
-    >>> match(activity, {"$and": [{"name": "Sally"}, {"name": "Joe"}]})
-    False
-    >>> match(activity, {"$and": [{"name": "Joe"}, {"name": "Sally"}]})
-    False
-    >>> match(activity, {"$or": [{"name": "Sally"}, {"name": "Joe"}]})
-    True
-    >>> match(activity, {"$or": [{"name": "Joe"}, {"name": "Sally"}]})
-    True
-    """
-    for item in query:
-        if item == "$or":
-            matched = False
-            for each in query[item]:
-                if match(doc, each):
-                    matched = True
-                    break
-            if not matched:
-                return False
-        elif item == "$and":
-            matched = True
-            for each in query[item]:
-                if not match(doc, each):
-                    matched = False
-                    break
-            if not matched:
-                return False
-        else:
-            thing = get_item_in_dict(doc, item)
-            matched = is_match(thing, query[item])
-            if not matched:
-                return False
-    return True
-
-class DummyTable(Table):
+class ListTable(Table):
     def __init__(self, database=None, name=None, data=None):
         super().__init__(database, name)
         self.data = data or []
 
     def __getitem__(self, item):
         return self.data[item]
+
+    def __setitem__(self, item, value):
+        self.data[item] = value
+
+    def __delitem__(self, key):
+        del self.data[key]
 
     def __len__(self):
         return len(self.data)
@@ -156,20 +74,117 @@ class DummyTable(Table):
     def __repr__(self):
         return repr(self.data)
 
+    def match(self, doc, query):
+        """
+        Does a dictionary match a (possibly-nested) query/dict?
+
+        query is a dictionary of dotted words or query operations.
+
+        >>> table = ListTable()
+        >>> table.match({"x": 42}, {"x": 42})
+        True
+        >>> table.match({"x": 42}, {"x": 43})
+        False
+        >>> table.match({"x": {"y": 5}}, {"x.y": 5})
+        True
+        >>> table.match({"x": {"y": 5}}, {"x.y": 4})
+        False
+        >>> activity = {"name": "Joe"}
+        >>> table.match(activity, {"$and": [{"name": "Sally"}, {"name": "Joe"}]})
+        False
+        >>> table.match(activity, {"$and": [{"name": "Joe"}, {"name": "Sally"}]})
+        False
+        >>> table.match(activity, {"$or": [{"name": "Sally"}, {"name": "Joe"}]})
+        True
+        >>> table.match(activity, {"$or": [{"name": "Joe"}, {"name": "Sally"}]})
+        True
+        """
+        for item in query:
+            if item == "$or":
+                matched = False
+                for each in query[item]:
+                    if self.match(doc, each):
+                        matched = True
+                        break
+                if not matched:
+                    return False
+            elif item == "$and":
+                matched = True
+                for each in query[item]:
+                    if not self.match(doc, each):
+                        matched = False
+                        break
+                if not matched:
+                    return False
+            else:
+                thing = self.get_item_in_dict(doc, item)
+                matched = is_match(thing, query[item])
+                if not matched:
+                    return False
+        return True
+
+    def get_item_in_dict(self, dictionary, item):
+        """
+        Get dictionary item from a dotted-word.
+
+        >>> table = ListTable()
+        >>> table.get_item_in_dict({"x": 1}, "x")
+        1
+        >>> table.get_item_in_dict({"x": {"y": 42}}, "x.y")
+        42
+        """
+        current = dictionary
+        for word in item.split("."):
+            if word in current:
+                current = current[word]
+            else:
+                return None
+        return current
+
+    def set_item_in_dict(self, dictionary, item, value, i=None):
+        """
+        Set dictionary item from a dotted-word.
+
+        >>> table = ListTable()
+        >>> d = {"x": 1}
+        >>> table.get_item_in_dict(d, "x")
+        1
+        >>> table.set_item_in_dict(d, "x", 2)
+        >>> table.get_item_in_dict(d, "x")
+        2
+        >>> d2 = {"x": {"y": 42}}
+        >>> table.get_item_in_dict(d2, "x.y")
+        42
+        >>> table.set_item_in_dict(d2, "x.y", 43)
+        >>> table.get_item_in_dict(d2, "x.y")
+        43
+        """
+        current = dictionary
+        words = item.split(".")
+        for word in words[:-1]:
+            current = current[word]
+        current[words[-1]] = value
+        ## update the database for those lists
+        ## that are separate from the reference
+        ## in dictionary (eg, redis)
+        if i is not None:
+            self.data[i] = dictionary
+
     def drop(self):
         self.data.clear()
 
     def sort(self, sort_key, sort_order):
         # sort_key = "_id"
         # sort_order = 1 or -1
-        return DummyTable(data=sorted(
+        ## Always use ListTable here:
+        return ListTable(data=sorted(
             self.data,
-            key=lambda row: get_item_in_dict(row, sort_key),
+            key=lambda row: self.get_item_in_dict(row, sort_key),
             reverse=(sort_order == -1)))
 
     def insert_one(self, row):
         """
-        >>> table = DummyTable()
+        >>> table = ListTable()
         >>> table.count()
         0
         >>> len(table.data)
@@ -199,9 +214,9 @@ class DummyTable(Table):
             row["_id"] = ObjectId()
         self.data.append(row)
 
-    def find(self, query=None, limit=None):
+    def find(self, query=None, limit=None, enumerated=False):
         """
-        >>> table = DummyTable()
+        >>> table = ListTable()
         >>> table.insert_one({"a": 1, "b": 2})
         >>> table.find({"a": 1}) # doctest: +ELLIPSIS
         [{'a': 1, 'b': 2, '_id': ObjectId('...')}]
@@ -210,17 +225,29 @@ class DummyTable(Table):
         """
         if query is not None:
             if limit is not None:
-                return DummyTable(data=[doc for doc in self.data if match(doc, query)][:limit])
+                if enumerated:
+                    return [(i,doc) for (i,doc) in enumerate(self.data) if self.match(doc, query)][:limit]
+                else:
+                    return ListTable(data=[doc for doc in self.data if self.match(doc, query)][:limit])
             else:
-                return DummyTable(data=[doc for doc in self.data if match(doc, query)])
+                if enumerated:
+                    return [(i,doc) for (i,doc) in enumerate(self.data) if self.match(doc, query)]
+                else:
+                    return ListTable(data=[doc for doc in self.data if self.match(doc, query)])
         elif limit is not None:
-                return DummyTable(data=self.data[:limit])
+            if enumerated:
+                return list(enumerated(self.data[:limit]))
+            else:
+                return ListTable(data=self.data[:limit])
         else:
-            return self
+            if enumerated:
+                return list(enumerated(self.data))
+            else:
+                return self
 
     def remove(self, query=None):
         """
-        >>> table = DummyTable()
+        >>> table = ListTable()
         >>> table.insert_one({"a": 1, "b": 2})
         >>> table.insert_one({"c": 3, "d": 4})
         >>> table.find({"a": 1}) # doctest: +ELLIPSIS
@@ -231,13 +258,13 @@ class DummyTable(Table):
         [{'c': 3, 'd': 4, '_id': ObjectId('...')}]
         """
         if query:
-            items = [doc for doc in self.data if match(doc, query)]
+            items = [doc for doc in self.data if self.match(doc, query)]
             # delete them
         else:
             self.data = []
 
     def find_one(self, query):
-        results = [doc for doc in self.data if match(doc, query)]
+        results = [doc for doc in self.data if self.match(doc, query)]
         if results:
             return results[0]
         else:
@@ -252,12 +279,12 @@ class DummyTable(Table):
             return True
 
     def update_one(self, query, items, upsert=False):
-        results = [doc for doc in self.data if match(doc, query)]
+        results = [(i,doc) for (i,doc) in enumerate(self.data) if self.match(doc, query)]
         if len(results) > 0:
             self.process_updates(results[:1], items)
         elif upsert: ## update and insert
             self.insert_one(query)
-            results = self.find(query)
+            results = self.find(query, enumerated=True)
             self.process_updates(results, items)
 
     def process_updates(self, results, items):
@@ -269,49 +296,49 @@ class DummyTable(Table):
         * {'$set': {'meta.undo': True, 'meta.exta': 'object deleted'}}
         * {'$inc': {'meta.count_reply': -1, 'meta.count_direct_reply': -1}}
 
-        >>> db = DummyDatabase()
+        >>> db = ListDatabase()
         >>> db.actors.insert_one({'meta': {'deleted': True}})
         >>> len(db.actors.find({'meta.deleted': True}))
         1
-        >>> db.actors.process_updates(db.actors.data,
+        >>> db.actors.process_updates(enumerate(db.actors.data),
         ...              {"$set": {'meta.deleted': False}})
         >>> len(db.actors.find({'meta.deleted': True}))
         0
         >>> len(db.actors.find({'meta.deleted': False}))
         1
 
-        >>> db = DummyDatabase()
+        >>> db = ListDatabase()
         >>> db.actors.insert_one({'meta': {'count': 0}})
         >>> db.actors.find()[0]["meta"]["count"]
         0
-        >>> db.actors.process_updates(db.actors.data,
+        >>> db.actors.process_updates(enumerate(db.actors.data),
         ...              {"$inc": {'meta.count': +1}})
         >>> db.actors.find()[0]["meta"]["count"]
         1
-        >>> db.actors.process_updates(db.actors.data,
+        >>> db.actors.process_updates(enumerate(db.actors.data),
         ...              {"$inc": {'meta.count': +1}})
         >>> db.actors.find()[0]["meta"]["count"]
         2
-        >>> db.actors.process_updates(db.actors.data,
+        >>> db.actors.process_updates(enumerate(db.actors.data),
         ...              {"$inc": {'meta.count': -1}})
         >>> db.actors.find()[0]["meta"]["count"]
         1
         """
-        for result in results:
+        for i,result in results:
             for item in items: # key
                 if item == "$set":
                     for thing in items[item]: # keys of the $set
                         value = items[item][thing]
-                        set_item_in_dict(result, thing, value)
+                        self.set_item_in_dict(result, thing, value, i)
                 elif item == "$inc":
                     for thing in items[item]:
-                        old_value = get_item_in_dict(result, thing)
+                        old_value = self.get_item_in_dict(result, thing)
                         incr = items[item][thing]
-                        set_item_in_dict(result, thing, old_value + incr)
+                        self.set_item_in_dict(result, thing, old_value + incr, i)
 
     def update(self, query, items, upsert=False):
         """
-        >>> db = DummyDatabase()
+        >>> db = ListDatabase()
         >>> q = {"id": "XXX", "test": 42}
         >>> db.actors.update(q, {"$inc": {"test": +1}}, upsert=False)
         >>> len(db.actors.find(q))
@@ -323,25 +350,24 @@ class DummyTable(Table):
         >>> len(db.actors.find(q))
         1
         """
-        results = [doc for doc in self.data if match(doc, query)]
+        results = [(i,doc) for (i,doc) in enumerate(self.data) if self.match(doc, query)]
         if len(results) > 0:
             self.process_updates(results, items)
         elif upsert: # update and insert
             self.insert_one(query)
-            results = self.find(query)
+            results = self.find(query, enumerated=True)
             self.process_updates(results, items)
 
     def count(self, query=None):
         if query:
-            return len([doc for doc in self.data if match(doc, query)])
+            return len([doc for doc in self.data if self.match(doc, query)])
         else:
             return len(self.data)
 
     count_documents = count
 
-class DummyDatabase(Database):
-    def __init__(self):
-        super().__init__(DummyTable)
+class ListDatabase(Database):
+    Table = ListTable
 
 """
 process_updates: [{'box': 'outbox', 'activity': {'type': 'Create', 'actor': 'http://localhost:5005', 'object': {'type': 'Note', 'sensitive': False, 'attributedTo': 'http://localhost:5005', 'cc': ['http://localhost:5005/followers'], 'to': ['https://www.w3.org/ns/activitystreams#Public'], 'content': '<p>2</p>', 'tag': [], 'published': '2018-07-19T17:23:22Z', 'id': 'http://localhost:5005/outbox/75b40a6f5c319bdf/activity', 'url': 'http://localhost:5005/note/75b40a6f5c319bdf'}, '@context': ['https://www.w3.org/ns/activitystreams', 'https://w3id.org/security/v1', {'Hashtag': 'as:Hashtag', 'sensitive': 'as:sensitive'}], 'published': '2018-07-19T17:23:22Z', 'to': ['https://www.w3.org/ns/activitystreams#Public'], 'cc': ['http://localhost:5005/followers'], 'id': 'http://localhost:5005/outbox/75b40a6f5c319bdf'}, 'type': ['Create'], 'remote_id': 'http://localhost:5005/outbox/75b40a6f5c319bdf', 'meta': {'undo': False, 'deleted': False}, '_id': ObjectId('5b50c90a1342a3318e13d434'), '_requested': True}]

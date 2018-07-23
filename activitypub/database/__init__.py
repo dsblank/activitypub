@@ -1,5 +1,5 @@
 
 from .base import Database, Table
-from .dummy import DummyDatabase
+from .listdb import ListDatabase
 from .mongodb import MongoDatabase
 from .redisdb import RedisDatabase

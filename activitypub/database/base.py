@@ -1,16 +1,3 @@
-class Database():
-    """
-    Base database class.
-    """
-    def __init__(self, Table):
-        self.activities = Table(self, "activities")
-        self.u2f = Table(self, "u2f")
-        self.instances = Table(self, "instances")
-        self.actors = Table(self, "actors")
-        self.indieauth = Table(self, "indieauth")
-
-    ## TODO: put required methods to override here
-
 class Table():
     """
     Base table class.
@@ -19,4 +6,15 @@ class Table():
         self.database = database
         self.name = name
 
-    ## TODO: put required methods to override here
+class Database():
+    """
+    Base database class.
+    """
+    Table = Table
+    def __init__(self):
+        self._tables = {}
+
+    def __getattr__(self, attr):
+        if attr not in self._tables:
+            self._tables[attr] = self.Table(self, attr)
+        return self._tables[attr]

@@ -2,20 +2,33 @@ import binascii
 import os
 import uuid
 
+class Routes():
+    routes = []
+
+    def __call__(self, path, methods=["GET"]):
+        print("call Routes!")
+        def decorator(function):
+            print("call decorator!")
+            Routes.routes.append((path, function))
+        print("return")
+        return decorator
+
 class Manager():
     """
     Manager class that ties together ActivityPub objects, defaults,
     and a database.
 
     >>> from activitypub.manager import Manager
-    >>> from activitypub.database import DummyDatabase
-    >>> db = DummyDatabase()
+    >>> from activitypub.database import ListDatabase
+    >>> db = ListDatabase()
     >>> manager = Manager(database=db)
     >>>
     """
     app_name = "activitypub"
     version = "1.0.0"
     key_path = "./keys"
+    route = Routes()
+
     def __init__(self, context=None, defaults=None, database=None):
         from ..classes import ActivityPubBase
         self.callback = lambda box, activity_id: None
@@ -236,4 +249,3 @@ class Manager():
         def decorator(function):
             return function
         return decorator
-

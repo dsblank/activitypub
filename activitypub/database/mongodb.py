@@ -42,9 +42,10 @@ class MongoTable(Table):
             self.__dict__[attr] = value
 
 class MongoDatabase(Database):
+    Table = MongoTable
     def __init__(self, uri, db_name):
+        super().__init__()
         self.uri = uri
         self.client = MongoClient(self.uri)
         self.db_name = db_name
         self.DB = self.client[self.db_name]
-        super().__init__(MongoTable)
