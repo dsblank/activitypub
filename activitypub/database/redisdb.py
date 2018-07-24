@@ -1,5 +1,11 @@
-from redis_collections import List
-import redis
+try:
+    import redis
+    from redis_collections import List
+    from_url = redis.StrictRedis.from_url
+except:
+    def from_url(*args, **kwargs):
+        raise Exception("You need to install redis and redis_collections")
+
 from .listdb import ListTable
 from .base import Database
 
@@ -16,5 +22,5 @@ class RedisDatabase(Database):
         * "redis://localhost:6379"
         * "redis://localhost:6379/0"
         """
-        self.redis = redis.StrictRedis.from_url(url, **kwargs) if url else None
+        self.redis = from_url(url, **kwargs) if url else None
         super().__init__()

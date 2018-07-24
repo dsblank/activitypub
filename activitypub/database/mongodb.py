@@ -1,4 +1,8 @@
-from pymongo import MongoClient
+try:
+    from pymongo import MongoClient
+except:
+    def MongoClient(*args, **kwargs):
+        raise Exception("You need to install pymongo")
 
 from .base import Database, Table
 

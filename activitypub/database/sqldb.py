@@ -1,6 +1,12 @@
-from sqlalchemy import create_engine, inspect
-from sqlalchemy.orm import scoped_session, sessionmaker
-from sqlalchemy.pool import StaticPool
+
+try:
+    from sqlalchemy import create_engine, inspect
+    from sqlalchemy.orm import scoped_session, sessionmaker
+    from sqlalchemy.pool import StaticPool
+except:
+    def create_engine(*args, **kwargs):
+        raise Exception("You need to install sqlalchemy")
+    
 import logging
 import json
 

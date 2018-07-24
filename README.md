@@ -1,5 +1,25 @@
 # activitypub
 
+This is a Python library to use with
+[ActivityPub](https://en.wikipedia.org/wiki/ActivityPub). ActivityPub
+is an API for an open, distributed, social network.
+
+## Install
+
+You can install the development version of activitypub with:
+
+```
+pip install git+git://github.com/dsblank/activitypub
+```
+
+or the last packaged version with:
+
+```
+pip install activitypub
+```
+
+## Abstractions
+
 This module is designed to be a generally useful ActivityPub library in Python. It targets three different levels of use:
 
 * ActivityPub object API
