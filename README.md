@@ -17,6 +17,23 @@ or the last packaged version with:
 ```
 pip install activitypub
 ```
+To use with redis:
+
+```
+pip install redis redis_collections
+```
+
+OR to use with mongodb:
+
+```
+pip install pymongo
+```
+
+OR to use with SQLAlchemy:
+
+```
+pip install sqlalchemy
+```
 
 ## Abstractions
 
