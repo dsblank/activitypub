@@ -256,14 +256,31 @@ class ListTable(Table):
         []
         >>> table.find({"d": 4}) # doctest: +ELLIPSIS
         [{'c': 3, 'd': 4, '_id': ObjectId('...')}]
+        >>> table.remove({"d": 4})
+        >>> table.find({"d": 4})
+        []
+        >>> table.find({"b": 2}) # doctest: +ELLIPSIS
+        [{'a': 1, 'b': 2, '_id': ObjectId('...')}]
         """
         if query:
-            items = [doc for doc in self.data if self.match(doc, query)]
-            # delete them
+            items = [(i,doc) for (i,doc) in enumerate(self.data) if self.match(doc, query)]
+            for i,doc in items:
+                del self.data[i]
         else:
-            self.data = []
+            self.data.clear()
 
     def find_one(self, query):
+        """
+        >>> table = ListTable()
+        >>> table.insert_one({"a": 1, "b": 2})
+        >>> table.insert_one({"a": 3, "b": 4})
+
+        >>> table.find_one({"b": 2}) # doctest: +ELLIPSIS
+        {'a': 1, 'b': 2, '_id': ObjectId('...')}
+        >>> table.find_one({"b": 3})
+        >>> table.find_one({"b": 4}) # doctest: +ELLIPSIS
+        {'a': 3, 'b': 4, '_id': ObjectId('...')}
+        """
         results = [doc for doc in self.data if self.match(doc, query)]
         if results:
             return results[0]
