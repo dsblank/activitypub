@@ -1,5 +1,6 @@
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.pool import StaticPool
 import logging
 import json
 
@@ -185,8 +186,19 @@ class SQLDatabase(Database):
 
     def __init__(self, *args, **kwargs):
         super().__init__()
-        self.engine = create_engine(*args, **kwargs)
-        self.session = scoped_session(sessionmaker(bind=self.engine))
+        args = list(args)
+        if args[0].endswith(":memory:"):
+            args[0] = args[0].replace(":memory:", "")
+        if args[0] == "sqlite://": # in-memory
+            kwargs.update({
+                "connect_args": {'check_same_thread': False},
+                "poolclass": StaticPool,
+            })
+            self.engine = create_engine(*args, **kwargs)
+            self.session = sessionmaker(bind=self.engine)()
+        else:
+            self.engine = create_engine(*args, **kwargs)
+            self.session = scoped_session(sessionmaker(bind=self.engine))
 
     def commit(self):
         self.session.commit()
