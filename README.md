@@ -94,7 +94,7 @@ activitypub supports the following databases:
 * An in-memory, JSON-based database for testing
 * Redis
 
-The activitypub database API is a subset of the MongDB.
+The activitypub database API is a subset of the MongoDB.
 
 activitypub is targeting the following web frameworks:
 
