@@ -2,6 +2,52 @@ import binascii
 import os
 import uuid
 
+class Data():
+    routes = []
+    filters = []
+
+class DataWrapper():
+    """
+    Instance for saving routes, filters, etc. for app.
+
+    >>> @app.filter
+    ... def upper(item):
+    ...     return item.upper()
+    >>> len(app._data.filters) == 1
+    True
+    >>> app._data.filters[0]("testing")
+    'TESTING'
+    >>> class Test():
+    ...     @app.route("/test")
+    ...     def route_test(self, *args, **kwargs):
+    ...         print(args, kwargs)
+    ...         return 42
+    >>> t = Test()
+    >>> len(app._data.routes) == 1
+    True
+    >>> path, methods, function = app._data.routes[0]
+    >>> function(t, 1, 2, 3, hello="world")
+    (1, 2, 3) {'hello': 'world'}
+    42
+    """
+    _data = Data()
+
+    def filter(self, f):
+        """
+        Wrap a plain function/method to provide template function.
+        """
+        self._data.filters.append(f)
+        return f
+
+    def route(self, path, methods=None):
+        """
+        Wrap a function/method as a route.
+        """
+        def decorator(f):
+            self._data.routes.append((path, methods, f))
+            return f
+        return decorator
+
 class Routes():
     routes = []
 
@@ -44,6 +90,19 @@ class Manager():
 
         for class_ in ActivityPubBase.CLASSES:
             setattr(self, class_, make_wrapper(self, class_))
+
+    def setup_css(self, folder="."):
+        import sass
+        THEME_STYLE = "light"
+        THEME_COLOR = "#1d781d"
+        SASS_DIR = os.path.join(os.path.abspath(folder), "sass")
+        theme_css = f"$primary-color: {THEME_COLOR};\n"
+        with open(os.path.join(SASS_DIR, f"{THEME_STYLE}.scss")) as f:
+            theme_css += f.read()
+            theme_css += "\n"
+        with open(os.path.join(SASS_DIR, "base_theme.scss")) as f:
+            raw_css = theme_css + f.read()
+            self.CSS = sass.compile(string=raw_css, output_style="compressed")
 
     def make_defaults(self):
         """
@@ -249,3 +308,8 @@ class Manager():
         def decorator(function):
             return function
         return decorator
+
+## Singleton for the Application
+## Allows it to be in scope for decorating the app's
+## methods and functions
+app = DataWrapper()

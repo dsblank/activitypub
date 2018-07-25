@@ -1,36 +1,58 @@
-from flask import (Flask, Response, abort,
-                   jsonify as flask_jsonify,
-                   redirect, render_template,
-                   request, session, url_for)
-from flask_wtf.csrf import CSRFProtect
+try:
+    from flask import (Flask, Response, abort,
+                       jsonify as flask_jsonify,
+                       redirect, render_template,
+                       request, session, url_for)
+    from flask_wtf.csrf import CSRFProtect
+except:
+    pass # flask not available
 
-from .base import Manager
+import inspect
 
-class FlaskRoutes():
-    def __init__(self, manager):
-        self.manager = manager
+from .base import Manager, app
 
-    def __call__(self, path, methods=["GET"]):
-        print("Calling FlaskRoutes() with path=", path)
-        def decorator(function):
-            print("wrapping!")
-            @self.manager.app.route(path)
-            def f(*args, **kwargs):
-                print("calling wrapped function!")
-                function(*args, **kwargs)
-            print("returning")
-        return decorator
+def wrap_method(self, f):
+    def function(*args, **kwargs):
+        print(f.__name__, "called with:", args, kwargs)
+        return f(self, *args, **kwargs)
+    function.__name__ = f.__name__
+    return function
 
 class FlaskManager(Manager):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.app = Flask(__name__)
-        self.app.config.update(WTF_CSRF_CHECK_DEFAULT=False)
-        self.csrf = CSRFProtect(self.app)
-        print("here!")
-        self.route = FlaskRoutes(self)
 
     def run(self):
+        self.app = Flask(__name__,
+                         template_folder="/home/dblank/activitypub/apps/blog/templates/",
+                         static_folder="/home/dblank/activitypub/apps/blog/static")
+        self.app.config.update(WTF_CSRF_CHECK_DEFAULT=False)
+        self.csrf = CSRFProtect(self.app)
+
+        #self.app.config["EXPLAIN_TEMPLATE_LOADING"] = True
+        self.app.config["ME"] = {"url": "https://example.com",
+                                 "icon": {"url": "https://example.com"},
+                                 "icon_url": 'https://cs.brynmawr.edu/~dblank/images/doug-sm-orig.jpg',
+                                 "summary": "I'm just me."}
+        self.app.config["CSS"] = self.CSS
+        self.app.config["NAME"] =  "ActivityPub Blog"
+        self.app.config["ID"] = "http://localhost:5000"
+        ## Add routes:
+        for path, methods, f in app._data.routes:
+            params = [x.name for x in inspect.signature(f).parameters.values()]
+            print(f.__name__, params)
+            if len(params) > 0 and params[0] == "self":
+                self.app.route(path)(wrap_method(self, f))
+            else:
+                self.app.route(path)(f)
+        ## Add filters:
+        for f in app._data.filters:
+            params = [x.name for x in inspect.signature(f).parameters.values()]
+            print(f.__name__, params)
+            if len(params) > 0 and params[0] == "self":
+                self.app.template_filter()(wrap_method(self, f))
+            else:
+                self.app.template_filter()(f)
         self.app.run(debug=1)
 
     def load_secret_key(self, name):

@@ -28,7 +28,7 @@ def test_all():
 
         p1 = manager.Person(id="alyssa")
         p2 = manager.Person(id="brenda")
-        
+
         manager.database.actors.insert_one(p1.to_dict())
         manager.database.actors.insert_one(p2.to_dict())
 

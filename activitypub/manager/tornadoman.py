@@ -1,5 +1,8 @@
-import tornado
-from tornado.web import (Application, RequestHandler)
+try:
+    import tornado
+    from tornado.web import (Application, RequestHandler)
+except:
+    pass # tornado not available
 
 from .base import Manager
 
