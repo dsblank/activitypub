@@ -170,7 +170,7 @@ class ListTable(Table):
         if i is not None:
             self.data[i] = dictionary
 
-    def drop(self):
+    def clear(self):
         self.data.clear()
 
     def sort(self, sort_key, sort_order):
@@ -381,7 +381,8 @@ class ListTable(Table):
         else:
             return len(self.data)
 
-    count_documents = count
+    def count_documents(self, query):
+        return self.count(query)
 
 class ListDatabase(Database):
     Table = ListTable

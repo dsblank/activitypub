@@ -18,3 +18,10 @@ class Database():
         if attr not in self._tables:
             self._tables[attr] = self.Table(self, attr)
         return self._tables[attr]
+
+    def table_exists(self, table):
+        return table in self._tables
+
+    def build_table(self, name):
+        self._tables[name] = self.Table(self, name)
+

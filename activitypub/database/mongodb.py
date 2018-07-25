@@ -45,6 +45,9 @@ class MongoTable(Table):
         else:
             self.__dict__[attr] = value
 
+    def clear(self):
+        self.collection.drop()
+
 class MongoDatabase(Database):
     Table = MongoTable
     def __init__(self, uri, db_name):
@@ -53,3 +56,6 @@ class MongoDatabase(Database):
         self.client = MongoClient(self.uri)
         self.db_name = db_name
         self.DB = self.client[self.db_name]
+
+    def table_exists(self, table):
+        return table in self.client.database_names()
