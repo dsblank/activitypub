@@ -2,6 +2,13 @@ import binascii
 import os
 import uuid
 
+def wrap_method(manager, f):
+    def function(*args, **kwargs):
+        print(f.__name__, "called with:", args, kwargs)
+        return f(manager, *args, **kwargs)
+    function.__name__ = f.__name__
+    return function
+
 class Data():
     routes = []
     filters = []
@@ -90,6 +97,19 @@ class Manager():
 
         for class_ in ActivityPubBase.CLASSES:
             setattr(self, class_, make_wrapper(self, class_))
+
+    def render_template(self, template_name, **kwargs):
+        pass
+
+    def redirect(self, url):
+        pass
+
+    def url_for(self, name):
+        pass
+
+    @property
+    def request(self):
+        return None
 
     def setup_css(self, folder="."):
         import sass
@@ -308,6 +328,12 @@ class Manager():
         def decorator(function):
             return function
         return decorator
+
+    def get_template_folder(self):
+        return "/home/dblank/activitypub/apps/blog/templates/"
+
+    def get_static_folder(self):
+        return "/home/dblank/activitypub/apps/blog/static"
 
 ## Singleton for the Application
 ## Allows it to be in scope for decorating the app's

@@ -9,23 +9,28 @@ except:
 
 import inspect
 
-from .base import Manager, app
-
-def wrap_method(self, f):
-    def function(*args, **kwargs):
-        print(f.__name__, "called with:", args, kwargs)
-        return f(self, *args, **kwargs)
-    function.__name__ = f.__name__
-    return function
+from .base import Manager, app, wrap_method
 
 class FlaskManager(Manager):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    """
+    """
+    def render_template(self, template_name, **kwargs):
+        return render_template(template_name, **kwargs)
+
+    def redirect(self, url):
+        return redirect(url)
+
+    def url_for(self, name):
+        return url_for(name)
+
+    @property
+    def request(self):
+        return request
 
     def run(self):
         self.app = Flask(__name__,
-                         template_folder="/home/dblank/activitypub/apps/blog/templates/",
-                         static_folder="/home/dblank/activitypub/apps/blog/static")
+                         template_folder=self.get_template_folder(),
+                         static_folder=self.get_static_folder())
         self.app.config.update(WTF_CSRF_CHECK_DEFAULT=False)
         self.csrf = CSRFProtect(self.app)
 
