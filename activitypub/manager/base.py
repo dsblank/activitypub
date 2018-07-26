@@ -48,6 +48,7 @@ class DataWrapper():
         """
         Wrap a function/method as a route.
         """
+        methods = ["GET"] if methods is None else methods
         def decorator(f):
             self._data.routes.append((path, methods, f))
             return f
@@ -104,6 +105,13 @@ class Manager():
 
         for class_ in ActivityPubBase.CLASSES:
             setattr(self, class_, make_wrapper(self, class_))
+
+    def run(self):
+        print("This manager has these filters:")
+        print("    %s" % [f.__name__ for f in app.get_filters()])
+        print("This manager has these routes:")
+        for (route, methods, f) in app.get_routes():
+            print("    %s %s mapped to %s" % (route, methods, f.__name__))
 
     def render_template(self, template_name, **kwargs):
         pass

@@ -21,9 +21,6 @@ class FlaskManager(Manager):
     def url_for(self, name):
         return url_for(name)
 
-    def write(self, item):
-        self._write_data += str(item)
-
     @property
     def request(self):
         return request
@@ -46,7 +43,7 @@ class FlaskManager(Manager):
         ## Add routes:
         for path, methods, f in app._data.routes:
             ## Add the route:
-            self.app.route(path)(wrap_function(self, f))
+            self.app.route(path, methods=methods)(wrap_function(self, f))
         ## Add filters:
         for f in app._data.filters:
             ## Add the template filter function:

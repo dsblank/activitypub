@@ -9,19 +9,18 @@ import jinja2
 
 from .base import Manager, wrap_function, app
 
-def make_handler(f, manager):
+def make_handler(f, manager, methods):
     """
     Make a Tornado Handler
     """
+    ## TODO: handle GET, POST methods
     class Handler(RequestHandler):
-
         def get(self):
             return f(self)
 
         def render_template(self, name, **kwargs):
             self.write(manager.render_template(name, **kwargs))
 
-        ## redirect is here
     return Handler
 
 class TornadoManager(Manager):
@@ -63,12 +62,6 @@ class TornadoManager(Manager):
     #def login_required():
     #    tornado.web.authenticated
 
-    #def render_template(self, template_name, **kwargs):
-    #    return render_template(template_name, **kwargs)
-
-    #def redirect(self, url):
-    #    return redirect(url)
-
     def url_for(self, name):
         return url_for(name)
 
@@ -80,7 +73,7 @@ class TornadoManager(Manager):
         routes = []
         for route, methods, f in app._data.routes:
             params = [x.name for x in inspect.signature(f).parameters.values()]
-            routes.append((route, make_handler(f, self)))
+            routes.append((route, make_handler(f, self, methods)))
         self.app = Application(routes)
         self.app.listen(5000)
         tornado.ioloop.IOLoop.current().start()
