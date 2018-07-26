@@ -8,6 +8,7 @@ import inspect
 import jinja2
 
 from .base import Manager, wrap_function, app
+from .._version import VERSION
 
 def make_handler(f, manager, methods):
     """
@@ -37,15 +38,54 @@ class TornadoManager(Manager):
         return self._filters
 
     def render_template(self, name, **kwargs):
+        ## TODO : add context_processor
+        q = {
+            "type": "Create",
+            "activity.object.type": "Note",
+            "activity.object.inReplyTo": None,
+            "meta.deleted": False,
+        }
+        notes_count = self.database.activities.find(
+            {"box": "outbox", "$or": [q, {"type": "Announce", "meta.undo": False}]}
+        ).count()
+        q = {"type": "Create", "activity.object.type": "Note", "meta.deleted": False}
+        with_replies_count = self.database.activities.find(
+            {"box": "outbox", "$or": [q, {"type": "Announce", "meta.undo": False}]}
+        ).count()
+        liked_count = self.database.activities.count(
+            {
+                "box": "outbox",
+                "meta.deleted": False,
+                "meta.undo": False,
+                "type": "Like",
+            }
+        )
+        followers_q = {
+            "box": "inbox",
+            "type": "follow",
+            "meta.undo": False,
+        }
+        following_q = {
+            "box": "outbox",
+            "type": "follow",
+            "meta.undo": False,
+        }
+        kwargs.update({
+            "request":  {"args": {}},
+            "session": {"logged_in": True},
+            "microblogpub_version": VERSION,
+            "followers_count": self.database.activities.count(followers_q),
+            "following_count": self.database.activities.count(following_q),
+            "notes_count": 0, #notes_count,
+            "liked_count": 0, #liked_count,
+            "with_replies_count": 0, #with_replies_count,
+            "DOMAIN": "localhost:5000/test", # for tornado  TODO: update on each fetch, include full URL, /test
+            })
         filters = self.get_filters()
-        request = {"args": {}}
-        session = {"logged_in": True}
-        tornado.log.logging.warning("%s" % filters.keys())
+        tornado.log.logging.warning("%s" % list(filters.keys()))
         self.template_env.filters.update(filters)
         template = self.template_env.get_template(name)
         return template.render(config=self.config,
-                               request=request,
-                               session=session,
                                **kwargs)
 
     ## TODO: move to app.Data
