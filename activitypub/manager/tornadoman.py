@@ -17,12 +17,21 @@ def make_handler(f, manager, methods):
     """
     ## TODO: handle GET, POST methods
     class Handler(RequestHandler):
-
         def get(self, *args, **kwargs):
+            self.database = manager.database
+            self.Actor = manager.Actor
+            self.Activity = manager.Activity
+            self.Note = manager.Note
             return f(self, *args, **kwargs)
 
         def render_template(self, name, **kwargs):
             self.write(manager.render_template(name, **kwargs))
+
+        def render_json(self, obj):
+            self.write(obj) # will set header to JSON mimetype
+
+        def error(self, error_number):
+            self.write(manager.render_template("%s.html" % error_number))
 
     return Handler
 

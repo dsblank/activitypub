@@ -4,6 +4,7 @@ try:
                        redirect, render_template,
                        request, session, url_for)
     from flask_wtf.csrf import CSRFProtect
+    from flask import jsonify
 except:
     pass # flask not available
 
@@ -13,6 +14,9 @@ from .._version import VERSION
 class FlaskManager(Manager):
     """
     """
+    def render_json(self, obj):
+        return jsonify(obj) # has correct header type set
+
     def render_template(self, template_name, **kwargs):
         ## TODO : add context_processor
         q = {

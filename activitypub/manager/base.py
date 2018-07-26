@@ -121,11 +121,17 @@ class Manager():
     def render_template(self, template_name, **kwargs):
         pass
 
+    def render_json(self, json_object):
+        pass
+
     def redirect(self, url):
         pass
 
     def url_for(self, name):
         pass
+
+    def error(self, error_number):
+        self.render_template("%s.html" % error_number)
 
     @property
     def request(self):

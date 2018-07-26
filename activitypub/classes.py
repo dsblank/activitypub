@@ -58,7 +58,7 @@ class ActivityPubBase():
         """
         from functools import reduce
         # Find all items that don't depend on anything:
-        extra_items_in_deps = reduce(set.union, data.values()) - set(data.keys())
+        extra_items_in_deps = reduce(set.union, data.values(), set()) - set(data.keys())
         # Add empty dependences where needed:
         data.update({item: set() for item in extra_items_in_deps})
         while True:
@@ -167,12 +167,6 @@ class Actor(Object):
     ap_endpoints = {}
     ap_sharedInbox = None
 
-    def on_post(self, activity):
-        if activity.type != "Create":
-            obj = activity.object
-        else:
-            obj = activity
-
 class Application(Actor):
     ap_type = "Application"
 
@@ -224,6 +218,11 @@ class Note(Document):
     """
     ap_type = "Note"
 
+class Activity(Document):
+    """
+    """
+    ap_type = "Activity"
+
 class Create(Object):
     """
     """
@@ -231,6 +230,7 @@ class Create(Object):
 
 ActivityPubBase.CLASSES = {
     "Actor": Actor,
+    "Activity": Activity,
     "Application": Application,
     "Group": Group,
     "Organization": Organization,
