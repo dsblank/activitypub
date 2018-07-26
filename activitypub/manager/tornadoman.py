@@ -60,6 +60,7 @@ class TornadoManager(Manager):
         return request
 
     def run(self):
+        self.config["CSS"] = self.CSS
         routes = []
         for route, methods, f in app._data.routes:
             params = [x.name for x in inspect.signature(f).parameters.values()]

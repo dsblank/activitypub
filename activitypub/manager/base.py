@@ -98,6 +98,7 @@ class Manager():
         self.defaults["$UUID"] = lambda: str(uuid.uuid4())
         self.database = database
         self.config = {}
+        self.CSS = ""
         self._static_folder = os.path.abspath("./static")
         self._template_folder = os.path.abspath("./templates")
         self._sass_folder = os.path.abspath("./sass")
