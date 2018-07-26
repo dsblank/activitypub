@@ -97,6 +97,10 @@ class Manager():
         self.defaults = defaults or self.make_defaults()
         self.defaults["$UUID"] = lambda: str(uuid.uuid4())
         self.database = database
+        self.config = {}
+        self._static_folder = os.path.abspath("./static")
+        self._template_folder = os.path.abspath("./templates")
+        self._sass_folder = os.path.abspath("./sass")
 
         def make_wrapper(manager, class_):
             def wrapper(*args, **kwargs):
@@ -130,7 +134,8 @@ class Manager():
         import sass
         THEME_STYLE = "light"
         THEME_COLOR = "#1d781d"
-        SASS_DIR = os.path.join(os.path.abspath(folder), "sass")
+        SASS_DIR = os.path.join(os.path.abspath(folder),
+                                self.get_sass_folder())
         theme_css = f"$primary-color: {THEME_COLOR};\n"
         with open(os.path.join(SASS_DIR, f"{THEME_STYLE}.scss")) as f:
             theme_css += f.read()
@@ -345,10 +350,22 @@ class Manager():
         return decorator
 
     def get_template_folder(self):
-        return "/home/dblank/activitypub/apps/blog/templates/"
+        return self._template_folder
+
+    def set_template_folder(self, value):
+        self._template_folder = os.path.abspath(value)
 
     def get_static_folder(self):
-        return "/home/dblank/activitypub/apps/blog/static"
+        return self._static_folder
+
+    def set_static_folder(self, value):
+        self._static_folder = value
+
+    def get_sass_folder(self):
+        return self._sass_folder
+
+    def set_sass_folder(self, value):
+        self._sass_folder = value
 
 ## Singleton for the Application
 ## Allows it to be in scope for decorating the app's

@@ -30,16 +30,9 @@ class FlaskManager(Manager):
                          template_folder=self.get_template_folder(),
                          static_folder=self.get_static_folder())
         self.app.config.update(WTF_CSRF_CHECK_DEFAULT=False)
-        self.csrf = CSRFProtect(self.app)
-
-        #self.app.config["EXPLAIN_TEMPLATE_LOADING"] = True
-        self.app.config["ME"] = {"url": "https://example.com",
-                                 "icon": {"url": "https://example.com"},
-                                 "icon_url": 'https://cs.brynmawr.edu/~dblank/images/doug-sm-orig.jpg',
-                                 "summary": "I'm just me."}
         self.app.config["CSS"] = self.CSS
-        self.app.config["NAME"] =  "ActivityPub Blog"
-        self.app.config["ID"] = "http://localhost:5000"
+        self.app.config.update(self.config)
+        self.csrf = CSRFProtect(self.app)
         ## Add routes:
         for path, methods, f in app._data.routes:
             ## Add the route:

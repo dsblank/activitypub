@@ -38,22 +38,12 @@ class TornadoManager(Manager):
 
     def render_template(self, name, **kwargs):
         filters = self.get_filters()
-        config = {}
-        config["ME"] = {"url": "https://example.com",
-                        "icon": {"url": "https://example.com"},
-                        "icon_url": 'https://cs.brynmawr.edu/~dblank/images/doug-sm-orig.jpg',
-                        "summary": "I'm just me."}
-        config["CSS"] = self.CSS
-        config["NAME"] =  "ActivityPub Blog"
-        config["ID"] = "http://localhost:5000"
-
         request = {"args": {}}
         session = {"logged_in": True}
-
         tornado.log.logging.warning("%s" % filters.keys())
         self.template_env.filters.update(filters)
         template = self.template_env.get_template(name)
-        return template.render(config=config,
+        return template.render(config=self.config,
                                request=request,
                                session=session,
                                **kwargs)
