@@ -6,6 +6,7 @@ except:
 
 import inspect
 import jinja2
+import re
 
 from .base import Manager, wrap_function, app
 from .._version import VERSION
@@ -16,8 +17,9 @@ def make_handler(f, manager, methods):
     """
     ## TODO: handle GET, POST methods
     class Handler(RequestHandler):
-        def get(self):
-            return f(self)
+
+        def get(self, *args, **kwargs):
+            return f(self, *args, **kwargs)
 
         def render_template(self, name, **kwargs):
             self.write(manager.render_template(name, **kwargs))
@@ -104,6 +106,8 @@ class TornadoManager(Manager):
         routes = []
         for route, methods, f in app._data.routes:
             params = [x.name for x in inspect.signature(f).parameters.values()]
+            # Replace "<parameter>" with Tornado re matching string:
+            route = re.sub("\<[^\>]*\>", r"([^/]*)", route)
             routes.append((route, make_handler(f, self, methods)))
         self.app = Application(routes)
         self.app.listen(5000)
