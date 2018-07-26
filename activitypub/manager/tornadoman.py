@@ -7,9 +7,12 @@ except:
 import inspect
 import jinja2
 
-from .base import Manager, app, wrap_method
+from .base import Manager, wrap_function, app
 
 def make_handler(f, manager):
+    """
+    Make a Tornado Handler
+    """
     class Handler(RequestHandler):
 
         def get(self):
@@ -24,19 +27,15 @@ def make_handler(f, manager):
 class TornadoManager(Manager):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._filters = None
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(self.get_template_folder()))
 
     def get_filters(self):
-        filters = []
-        for f in app._data.filters:
-            params = [x.name for x in inspect.signature(f).parameters.values()]
-            if len(params) > 0 and params[0] == "self":
-                filters.append(wrap_method(self, f))
-            else:
-                filters.append(f)
-        filters = {f.__name__: f for f in filters}
-        return filters
+        if self._filters is None:
+            self._filters = {f.__name__: wrap_function(self, f)
+                             for f in app._data.filters}
+        return self._filters
 
     def render_template(self, name, **kwargs):
         filters = self.get_filters()

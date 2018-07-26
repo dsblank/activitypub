@@ -1,17 +1,15 @@
+import inspect
 import binascii
 import os
 import uuid
 
-def wrap_method(manager, f):
-    def function(*args, **kwargs):
-        print(f.__name__, "called with:", args, kwargs)
-        return f(manager, *args, **kwargs)
-    function.__name__ = f.__name__
-    return function
-
 class Data():
     routes = []
     filters = []
+
+    def clear(self):
+        self.routes.clear()
+        self.filters.clear()
 
 class DataWrapper():
     """
@@ -55,16 +53,26 @@ class DataWrapper():
             return f
         return decorator
 
-class Routes():
-    routes = []
+    def get_routes(self):
+        return self._data.routes
 
-    def __call__(self, path, methods=["GET"]):
-        print("call Routes!")
-        def decorator(function):
-            print("call decorator!")
-            Routes.routes.append((path, function))
-        print("return")
-        return decorator
+    def get_filters(self):
+        return self._data.filters
+
+def wrap_function(manager, f):
+    """
+    General Function/Method Wrapper
+    """
+    ## Check the signature:
+    params = [x.name for x in inspect.signature(f).parameters.values()]
+    if len(params) == 0 or params[0] != "self":
+        raise Exception("route function %s needs 'self' as first parameter"
+                        % f.__name__)
+    def function(*args, **kwargs):
+        results = f(manager, *args, **kwargs)
+        return results
+    function.__name__ = f.__name__
+    return function
 
 class Manager():
     """
@@ -80,7 +88,6 @@ class Manager():
     app_name = "activitypub"
     version = "1.0.0"
     key_path = "./keys"
-    route = Routes()
 
     def __init__(self, context=None, defaults=None, database=None):
         from ..classes import ActivityPubBase

@@ -7,9 +7,7 @@ try:
 except:
     pass # flask not available
 
-import inspect
-
-from .base import Manager, app, wrap_method
+from .base import Manager, wrap_function, app
 
 class FlaskManager(Manager):
     """
@@ -22,6 +20,9 @@ class FlaskManager(Manager):
 
     def url_for(self, name):
         return url_for(name)
+
+    def write(self, item):
+        self._write_data += str(item)
 
     @property
     def request(self):
@@ -44,20 +45,12 @@ class FlaskManager(Manager):
         self.app.config["ID"] = "http://localhost:5000"
         ## Add routes:
         for path, methods, f in app._data.routes:
-            params = [x.name for x in inspect.signature(f).parameters.values()]
-            print(f.__name__, params)
-            if len(params) > 0 and params[0] == "self":
-                self.app.route(path)(wrap_method(self, f))
-            else:
-                self.app.route(path)(f)
+            ## Add the route:
+            self.app.route(path)(wrap_function(self, f))
         ## Add filters:
         for f in app._data.filters:
-            params = [x.name for x in inspect.signature(f).parameters.values()]
-            print(f.__name__, params)
-            if len(params) > 0 and params[0] == "self":
-                self.app.template_filter()(wrap_method(self, f))
-            else:
-                self.app.template_filter()(f)
+            ## Add the template filter function:
+            self.app.template_filter()(wrap_function(self, f))
         self.app.run(debug=1)
 
     def load_secret_key(self, name):
