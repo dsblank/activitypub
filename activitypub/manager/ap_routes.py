@@ -285,6 +285,52 @@ def route_webfinger(self):
         return self.error(404)
 
 """
+From: https://github.com/tootsuite/mastodon/blob/master/spec/fixtures/requests/activitypub-webfinger.txt
+
+HTTP/1.1 200 OK
+Cache-Control: max-age=0, private, must-revalidate
+Content-Type: application/jrd+json; charset=utf-8
+X-Content-Type-Options: nosniff
+Date: Sun, 17 Sep 2017 06:22:50 GMT
+
+{"subject":"acct:foo@ap.example.com","aliases":["https://ap.example.com/@foo","https://ap.example.com/users/foo"],"links":[{"rel":"http://webfinger.net/rel/profile-page","type":"text/html","href":"https://ap.example.com/@foo"},{"rel":"http://schemas.google.com/g/2010#updates-from","type":"application/atom+xml","href":"https://ap.example.com/users/foo.atom"},{"rel":"self","type":"application/activity+json","href":"https://ap.example.com/users/foo"},{"rel":"salmon","href":"https://ap.example.com/api/salmon/1"},{"rel":"magic-public-key","href":"data:application/magic-public-key,RSA.u3L4vnpNLzVH31MeWI394F0wKeJFsLDAsNXGeOu0QF2x-h1zLWZw_agqD2R3JPU9_kaDJGPIV2Sn5zLyUA9S6swCCMOtn7BBR9g9sucgXJmUFB0tACH2QSgHywMAybGfmSb3LsEMNKsGJ9VsvYoh8lDET6X4Pyw-ZJU0_OLo_41q9w-OrGtlsTm_PuPIeXnxa6BLqnDaxC-4IcjG_FiPahNCTINl_1F_TgSSDZ4Taf4U9XFEIFw8wmgploELozzIzKq-t8nhQYkgAkt64euWpva3qL5KD1mTIZQEP-LZvh3s2WHrLi3fhbdRuwQ2c0KkJA2oSTFPDpqqbPGZ3QvuHQ==.AQAB"},{"rel":"http://ostatus.org/schema/1.0/subscribe","template":"https://ap.example.com/authorize_follow?acct={uri}"}]}
+
+From: https://mastodon.social/.well-known/webfinger?resource=acct:dsblank@mastodon.social
+
+{"subject": "acct:dsblank@mastodon.social",
+ "aliases": ["https://mastodon.social/@dsblank",
+             "https://mastodon.social/users/dsblank"],
+ "links": [ {"rel": "http://webfinger.net/rel/profile-page",
+             "type": "text/html",
+             "href": "https://mastodon.social/@dsblank"},
+            {"rel": "http://schemas.google.com/g/2010#updates-from",
+             "type":"application/atom+xml",
+             "href":"https://mastodon.social/users/dsblank.atom"},
+            {"rel":"self",
+             "type":"application/activity+json",
+             "href":"https://mastodon.social/users/dsblank"},
+            {"rel":"salmon",
+             "href":"https://mastodon.social/api/salmon/368878"},
+            {"rel":"magic-public-key",
+             "href":"data:application/magic-public-key,RSA.3L4-ufnddoOSl-YS6pel0q-tz01cjutYsl6sVM3QkJBX9T3Mp9MCarbbh5xEfttxIPCzZZAv1Yv_VRyOsexPi7CfF8z2pOjaZ-HD7KrwovhgiiL8YIwd_6o3qc5eCUibE56DyemUfqxWWNcvJH64D57cF0sMaZpx95DSQ5JKkcIq2M_M1Wm5AQZH5NIKnVyR55eOH7zN09mvZrK_S93b5DYaeBIjNwgtTBRDj4qqNtRtF5SM3_XmdWskA_KArP586W7CI4ZK538WbnT09JNA3d7TJQrwLXwkXJMX1nQARKQfyjbRbg2lXJcdHV_0pJqnJa9p24O0ysOtPN6LqL6v5w==.AQAB"},
+            {"rel":"http://ostatus.org/schema/1.0/subscribe",
+             "template":"https://mastodon.social/authorize_follow?acct={uri}"}
+          ]
+}
+
+From: https://a4.io/.well-known/webfinger?resource=acct:t@a4.io
+
+{"subject": "acct:t@a4.io",
+ "aliases": ["https://a4.io"],
+ "links": [{"rel": "http://webfinger.net/rel/profile-page",
+            "type": "text/html", "href": "https://a4.io"},
+           {"rel": "self", "type": "application/activity+json", "href": "https://a4.io"},
+           {"rel": "http://ostatus.org/schema/1.0/subscribe", "template": "https://a4.io/authorize_follow?profile={uri}"},
+           {"rel": "magic-public-key", "href": "data:application/magic-public-key,RSA.zTYvKgiDIanj3XnpoGPdVmwq0A_FPqcoJXqMpNcIOVzWcOGK1WkxLeOnCcXhnxNnKpnXQIjU8MRz2y1tOfVEZHmII_hnOh2hcS3K5Sd_yHWnQkPgfnSBzn46mx3m8Nwi49qOZ0--ARGzVhOaBJhuUX2MvBrHl2A2GRjRtTnzACqFxB-ezZNGG6Ymvzv7CTCPXKUlygNqDy0Hi48SM_2LSmgotz5L0Vng3q33c9XeGR3YAiUlCevCDTyvIAkzN4hlP5zYezp_Bp7CkoY3teIvCaxZS5n92I_Oj2Xyq60v0MeXiqyXioGNPnUB8QtFV20kEhdwJik0_DubiRP_2Iy65w==.AQAB"},
+           {"href": "https://sos-ch-dk-2.exo.io/hexaninja/hexaninja-alpha.png", "rel": "http://webfinger.net/rel/avatar", "type": "image/png"}]
+}
+
+From https://willnorris.com/.well-known/webfinger?resource=acct:will@willnorris.com:
 
 {
   "subject": "acct:will@willnorris.com",

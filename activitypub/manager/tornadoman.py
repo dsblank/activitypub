@@ -10,6 +10,10 @@ import re
 from .base import Manager, wrap_function, app
 from ..classes import ActivityPubBase
 
+class Container():
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+
 def make_handler(f, manager, methods, route, kws):
     """
     Make a Tornado Handler
@@ -25,14 +29,47 @@ def make_handler(f, manager, methods, route, kws):
         A handler that replicates some of the methods in Manager
         so that developers don't need to know.
         """
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._filters = None
+            manager.template_env.filters.update(self.get_filters())
+
+        def get_template_namespace(self):
+                ns = super().get_template_namespace()
+                ns.update({
+                    'config': 'John Doe',
+                })
+                return ns
+
+        def __getattr__(self, attr):
+            return getattr(manager, attr)
+
         def get(self, *args, **kwargs):
-            self.database = manager.database
-            for name in ActivityPubBase.CLASSES:
-                setattr(self, name, getattr(manager, name))
             return f(self, *args, **kwargs)
 
+        def get_filters(self):
+            if self._filters is None:
+                self._filters = {f.__name__: wrap_function(self, f)
+                                 for f in app.get_filters()}
+            return self._filters
+
+        def _render_template(self, name, **kwargs):
+            tornado.log.logging.warning("kwargs: %s" % list(kwargs.keys()))
+            values = {
+                "request": Container(path=self.request.path,
+                                     args={k: self.get_argument(k) for k in self.request.arguments}),
+                "session": Container(logged_in=True),
+                "config": self.config,
+            }
+            for f in app.get_context_processors():
+                values.update(f(self))
+            values.update(kwargs)
+            template = manager.template_env.get_template(name)
+            tornado.log.logging.warning("values: %s" % list(values.keys()))
+            return template.render(**values)
+
         def render_template(self, name, **kwargs):
-            self.write(manager.render_template(name, **kwargs))
+            self.write(self._render_template(name, **kwargs))
 
         def render_json(self, obj):
             self.write(obj) # will set header to JSON mimetype
@@ -44,8 +81,13 @@ def make_handler(f, manager, methods, route, kws):
         def url_for(self, name):
             return manager.url_for(name)
 
+        #@property
+        #def request(self):
+        #    return Request("/test", {k: self.get_argument(k) for k in self.request.arguments})
+
         # Get for free:
         #   * get_argument
+        #   * request
 
     return Handler
 
@@ -56,35 +98,10 @@ class TornadoManager(Manager):
         self.template_env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(self.get_template_folder()))
 
-    def get_filters(self):
-        if self._filters is None:
-            self._filters = {f.__name__: wrap_function(self, f)
-                             for f in app._data.filters}
-        return self._filters
-
-    def render_template(self, name, **kwargs):
-        values = {}
-        for f in app.get_context_processors():
-            values.update(f(self))
-        values.update(kwargs)
-        filters = self.get_filters()
-        tornado.log.logging.warning("%s" % list(filters.keys()))
-        self.template_env.filters.update(filters)
-        template = self.template_env.get_template(name)
-        return template.render(config=self.config, **values)
-
-    ## TODO: move to app.Data
-    #def login_required():
-    #    tornado.web.authenticated
-
-    @property
-    def request(self):
-        return request
-
     def run(self):
         self.config["CSS"] = self.CSS
         routes = []
-        for route, methods, f, kwargs in app._data.routes:
+        for route, methods, f, kwargs in app.get_routes():
             re_route = re.sub("\<[^\>]*\>", r"([^/]*)", route)
             routes.append((re_route, make_handler(f, self, methods, route, kwargs)))
         self.app = Application(routes)
