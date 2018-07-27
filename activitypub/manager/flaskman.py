@@ -48,14 +48,14 @@ class FlaskManager(Manager):
         self.app.config.update(self.config)
         self.csrf = CSRFProtect(self.app)
         ## Add routes:
-        for path, methods, f in app._data.routes:
+        for path, methods, f, kwargs in app._data.routes:
             ## Add the route:
-            self.app.route(path, methods=methods)(wrap_function(self, f))
+            self.app.route(path, methods=methods, **kwargs)(wrap_function(self, f))
         ## Add filters:
         for f in app._data.filters:
             ## Add the template filter function:
             self.app.template_filter()(wrap_function(self, f))
-        self.app.run(debug=1)
+        self.app.run(debug=1, port=self.port)
 
     def load_secret_key(self, name):
         key = self._load_secret_key(name)

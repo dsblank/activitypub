@@ -1,4 +1,5 @@
 import json
+from .bson import ObjectId
 
 class JSONEncoder(json.JSONEncoder):
     def default(self, o):
@@ -14,4 +15,3 @@ class JSONDecoder(json.JSONDecoder):
         if '$oid' not in obj:
             return obj
         return ObjectId(obj['$oid'])
-

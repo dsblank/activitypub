@@ -8,20 +8,27 @@ import jinja2
 import re
 
 from .base import Manager, wrap_function, app
+from ..classes import ActivityPubBase
 
-def make_handler(f, manager, methods):
+def make_handler(f, manager, methods, route, kws):
     """
     Make a Tornado Handler
     """
     ## TODO: handle GET, POST methods
+    ## TODO: format args via route types, <int:page>
+    ## TODO: handle flask-style keywords in kws:
+    #    defaults, strict_slashes, endpoint
+    if "endpoint" in kws:
+        f.__name__ = kws["endpoint"]
     class Handler(RequestHandler):
+        """
+        A handler that replicates some of the methods in Manager
+        so that developers don't need to know.
+        """
         def get(self, *args, **kwargs):
             self.database = manager.database
-            ## TODO: add these in a more dynamic manner?
-            self.Actor = manager.Actor
-            self.Person = manager.Person
-            self.Activity = manager.Activity
-            self.Note = manager.Note
+            for name in ActivityPubBase.CLASSES:
+                setattr(self, name, getattr(manager, name))
             return f(self, *args, **kwargs)
 
         def render_template(self, name, **kwargs):
@@ -33,6 +40,12 @@ def make_handler(f, manager, methods):
         def error(self, error_number):
             self.set_status(error_number)
             self.write(manager.render_template("%s.html" % error_number))
+
+        def url_for(self, name):
+            return manager.url_for(name)
+
+        # Get for free:
+        #   * get_argument
 
     return Handler
 
@@ -64,9 +77,6 @@ class TornadoManager(Manager):
     #def login_required():
     #    tornado.web.authenticated
 
-    def url_for(self, name):
-        return url_for(name)
-
     @property
     def request(self):
         return request
@@ -74,10 +84,9 @@ class TornadoManager(Manager):
     def run(self):
         self.config["CSS"] = self.CSS
         routes = []
-        for route, methods, f in app._data.routes:
-            # Replace "<parameter>" with Tornado re matching string:
-            route = re.sub("\<[^\>]*\>", r"([^/]*)", route)
-            routes.append((route, make_handler(f, self, methods)))
+        for route, methods, f, kwargs in app._data.routes:
+            re_route = re.sub("\<[^\>]*\>", r"([^/]*)", route)
+            routes.append((re_route, make_handler(f, self, methods, route, kwargs)))
         self.app = Application(routes)
-        self.app.listen(5000)
+        self.app.listen(self.port)
         tornado.ioloop.IOLoop.current().start()

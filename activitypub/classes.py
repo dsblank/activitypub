@@ -233,6 +233,7 @@ ActivityPubBase.CLASSES = {
     "Activity": Activity,
     "Application": Application,
     "Group": Group,
+    "Create": Create,
     "Organization": Organization,
     "Person": Person,
     "Service": Service,

@@ -33,7 +33,7 @@ class Application():
     >>> t = Test()
     >>> len(app._data.routes) == 1
     True
-    >>> path, methods, function = app._data.routes[0]
+    >>> path, methods, function, kwargs = app._data.routes[0]
     >>> function(t, 1, 2, 3, hello="world")
     (1, 2, 3) {'hello': 'world'}
     42
@@ -50,13 +50,13 @@ class Application():
         self._data.filters.append(f)
         return f
 
-    def route(self, path, methods=None):
+    def route(self, path, methods=None, **kwargs):
         """
         Wrap a function/method as a route.
         """
         methods = ["GET"] if methods is None else methods
         def decorator(f):
-            self._data.routes.append((path, methods, f))
+            self._data.routes.append((path, methods, f, kwargs))
             return f
         return decorator
 
@@ -106,13 +106,14 @@ class Manager():
     version = "1.0.0"
     key_path = "./keys"
 
-    def __init__(self, context=None, defaults=None, database=None):
+    def __init__(self, context=None, defaults=None, database=None, port=5000):
         from ..classes import ActivityPubBase
         self.callback = lambda box, activity_id: None
         self.context = context
         self.defaults = defaults or self.make_defaults()
         self.defaults["$UUID"] = lambda: str(uuid.uuid4())
         self.database = database
+        self.port = port
         self.config = {}
         self.CSS = ""
         self._static_folder = os.path.abspath("./static")
@@ -131,7 +132,7 @@ class Manager():
         print("This manager has these filters:")
         print("    %s" % [f.__name__ for f in app.get_filters()])
         print("This manager has these routes:")
-        for (route, methods, f) in app.get_routes():
+        for (route, methods, f, kwargs) in app.get_routes():
             print("    %s %s mapped to %s" % (route, methods, f.__name__))
 
     def render_template(self, template_name, **kwargs):
@@ -144,7 +145,11 @@ class Manager():
         pass
 
     def url_for(self, name):
-        pass
+        ## admin_notifications
+        for (route, methods, f, kwargs) in app.get_routes():
+            if f.__name__ == name:
+                return route
+        return None
 
     def error(self, error_number):
         pass
