@@ -4,12 +4,10 @@ try:
 except:
     pass # tornado not available
 
-import inspect
 import jinja2
 import re
 
 from .base import Manager, wrap_function, app
-from .._version import VERSION
 
 def make_handler(f, manager, methods):
     """
@@ -33,6 +31,7 @@ def make_handler(f, manager, methods):
             self.write(obj) # will set header to JSON mimetype
 
         def error(self, error_number):
+            self.set_status(error_number)
             self.write(manager.render_template("%s.html" % error_number))
 
     return Handler
@@ -51,55 +50,15 @@ class TornadoManager(Manager):
         return self._filters
 
     def render_template(self, name, **kwargs):
-        ## TODO : add context_processor
-        q = {
-            "type": "Create",
-            "activity.object.type": "Note",
-            "activity.object.inReplyTo": None,
-            "meta.deleted": False,
-        }
-        notes_count = self.database.activities.find(
-            {"box": "outbox", "$or": [q, {"type": "Announce", "meta.undo": False}]}
-        ).count()
-        q = {"type": "Create", "activity.object.type": "Note", "meta.deleted": False}
-        with_replies_count = self.database.activities.find(
-            {"box": "outbox", "$or": [q, {"type": "Announce", "meta.undo": False}]}
-        ).count()
-        liked_count = self.database.activities.count(
-            {
-                "box": "outbox",
-                "meta.deleted": False,
-                "meta.undo": False,
-                "type": "Like",
-            }
-        )
-        followers_q = {
-            "box": "inbox",
-            "type": "follow",
-            "meta.undo": False,
-        }
-        following_q = {
-            "box": "outbox",
-            "type": "follow",
-            "meta.undo": False,
-        }
-        kwargs.update({
-            "request":  {"args": {}},
-            "session": {"logged_in": True},
-            "microblogpub_version": VERSION,
-            "followers_count": self.database.activities.count(followers_q),
-            "following_count": self.database.activities.count(following_q),
-            "notes_count": 0, #notes_count,
-            "liked_count": 0, #liked_count,
-            "with_replies_count": 0, #with_replies_count,
-            "DOMAIN": "localhost:5000/test", # for tornado  TODO: update on each fetch, include full URL, /test
-            })
+        values = {}
+        for f in app.get_context_processors():
+            values.update(f(self))
+        values.update(kwargs)
         filters = self.get_filters()
         tornado.log.logging.warning("%s" % list(filters.keys()))
         self.template_env.filters.update(filters)
         template = self.template_env.get_template(name)
-        return template.render(config=self.config,
-                               **kwargs)
+        return template.render(config=self.config, **values)
 
     ## TODO: move to app.Data
     #def login_required():
@@ -116,7 +75,6 @@ class TornadoManager(Manager):
         self.config["CSS"] = self.CSS
         routes = []
         for route, methods, f in app._data.routes:
-            params = [x.name for x in inspect.signature(f).parameters.values()]
             # Replace "<parameter>" with Tornado re matching string:
             route = re.sub("\<[^\>]*\>", r"([^/]*)", route)
             routes.append((route, make_handler(f, self, methods)))

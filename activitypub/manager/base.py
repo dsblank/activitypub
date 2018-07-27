@@ -6,12 +6,14 @@ import uuid
 class Data():
     routes = []
     filters = []
+    context_processors = []
 
     def clear(self):
         self.routes.clear()
         self.filters.clear()
+        self.context_processors.clear()
 
-class DataWrapper():
+class Application():
     """
     Instance for saving routes, filters, etc. for app.
 
@@ -58,11 +60,21 @@ class DataWrapper():
             return f
         return decorator
 
+    def context_processor(self, f):
+        """
+        Wrap a plain function/method to provide context processor function.
+        """
+        self._data.context_processors.append(f)
+        return f
+
     def get_routes(self):
         return self._data.routes
 
     def get_filters(self):
         return self._data.filters
+
+    def get_context_processors(self):
+        return self._data.context_processors
 
 def wrap_function(manager, f):
     """
@@ -71,7 +83,7 @@ def wrap_function(manager, f):
     ## Check the signature:
     params = [x.name for x in inspect.signature(f).parameters.values()]
     if len(params) == 0 or params[0] != "self":
-        raise Exception("route function %s needs 'self' as first parameter"
+        raise Exception("function %s needs 'self' as first parameter"
                         % f.__name__)
     def function(*args, **kwargs):
         results = f(manager, *args, **kwargs)
@@ -135,7 +147,7 @@ class Manager():
         pass
 
     def error(self, error_number):
-        return self.render_template("%s.html" % error_number)
+        pass
 
     @property
     def request(self):
@@ -381,4 +393,4 @@ class Manager():
 ## Singleton for the Application
 ## Allows it to be in scope for decorating the app's
 ## methods and functions
-app = DataWrapper()
+app = Application()
