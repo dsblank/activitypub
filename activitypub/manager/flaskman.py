@@ -17,6 +17,9 @@ class FlaskManager(Manager):
     def render_json(self, obj):
         return jsonify(obj) # has correct header type set
 
+    def get_argument(self, name, default_value=None):
+        return request.args.get(name, default_value)
+
     def render_template(self, template_name, **kwargs):
         ## TODO : add context_processor
         q = {

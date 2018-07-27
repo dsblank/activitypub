@@ -15,6 +15,7 @@ class DataWrapper():
     """
     Instance for saving routes, filters, etc. for app.
 
+    >>> app.clear()
     >>> @app.filter
     ... def upper(item):
     ...     return item.upper()
@@ -36,6 +37,9 @@ class DataWrapper():
     42
     """
     _data = Data()
+
+    def clear(self):
+        self._data.clear()
 
     def filter(self, f):
         """
@@ -131,7 +135,7 @@ class Manager():
         pass
 
     def error(self, error_number):
-        self.render_template("%s.html" % error_number)
+        return self.render_template("%s.html" % error_number)
 
     @property
     def request(self):

@@ -6,28 +6,14 @@ try:
 except:
     def create_engine(*args, **kwargs):
         raise Exception("You need to install sqlalchemy")
-    
+
 import logging
 import json
 
 from ..bson import ObjectId
+from ..json import JSONDecoder, JSONEncoder
 from .base import Database
 from .listdb import ListTable
-
-class JSONEncoder(json.JSONEncoder):
-    def default(self, o):
-        if isinstance(o, ObjectId):
-            return {"$oid": str(o)}
-        return super().default(o)
-
-class JSONDecoder(json.JSONDecoder):
-    def __init__(self, *args, **kwargs):
-        super().__init__(object_hook=self.object_hook, *args, **kwargs)
-
-    def object_hook(self, obj):
-        if '$oid' not in obj:
-            return obj
-        return ObjectId(obj['$oid'])
 
 class SQLList():
     def __init__(self, database, name):

@@ -19,7 +19,9 @@ def make_handler(f, manager, methods):
     class Handler(RequestHandler):
         def get(self, *args, **kwargs):
             self.database = manager.database
+            ## TODO: add these in a more dynamic manner?
             self.Actor = manager.Actor
+            self.Person = manager.Person
             self.Activity = manager.Activity
             self.Note = manager.Note
             return f(self, *args, **kwargs)
