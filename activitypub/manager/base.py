@@ -349,7 +349,7 @@ class Manager():
                 self.build_dependencies_from_item(key, s)
         return s
 
-    def replace_items_in_dict(self, dictionary, obj):
+    def replace_in_item(self, item, obj):
         """
         Replace the "$x" in {"val": "$x"} with self.ap_x
 
@@ -359,16 +359,24 @@ class Manager():
         >>> n.ap_y = 43
         >>> dictionary = {"key1": {"val": "$x"},
         ...               "key2": {"key3": "$y"}}
-        >>> manager.replace_items_in_dict(dictionary, n)
+        >>> retval = manager.replace_in_item(dictionary, n)
         >>> dictionary
         {'key1': {'val': 41}, 'key2': {'key3': 43}}
         """
-        for key in dictionary:
-            if isinstance(dictionary[key], str):
-                if dictionary[key].startswith("$"):
-                    dictionary[key] = getattr(obj, "ap_" + dictionary[key][1:])
-            elif isinstance(dictionary[key], dict):
-                self.replace_items_in_dict(dictionary[key], obj)
+        if isinstance(item, (bool, int, float)):
+            return item
+        elif isinstance(item, str):
+            return self.expand_defaults(item, obj)
+        elif isinstance(item, dict):
+            for key in item:
+                item[key] = self.replace_in_item(item[key], obj)
+            return item
+        elif isinstance(item, list):
+            for i in range(len(item)):
+                item[i] = self.replace_in_item(item[i], obj)
+            return item
+        else:
+            raise Exception("unknown item: %s" % item)
 
     def get_item_from_dotted(self, dotted_word, obj):
         """
@@ -412,9 +420,9 @@ class Manager():
                 raise Exception("variable depends on field that is empty: %s" % attr_name)
             if isinstance(attr, str) and "$" in attr:
                 setattr(obj, attr_name, self.expand_defaults(attr, obj))
-            elif isinstance(attr, dict):
+            elif isinstance(attr, (dict, list)):
                 ## traverse dict recursively, looking for replacements:
-                self.replace_items_in_dict(attr, obj)
+                self.replace_in_item(attr, obj)
 
     def fill_in_defaults(self, obj):
         # Next, fill in field-defaults:
