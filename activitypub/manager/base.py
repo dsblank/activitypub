@@ -1,6 +1,7 @@
 import datetime
 import inspect
 import binascii
+import copy
 import os
 import uuid
 
@@ -97,7 +98,6 @@ class Manager():
     Manager class that ties together ActivityPub objects, defaults,
     and a database.
 
-    >>> from activitypub.manager import Manager
     >>> from activitypub.database import ListDatabase
     >>> db = ListDatabase()
     >>> manager = Manager(database=db)
@@ -133,20 +133,48 @@ class Manager():
     version = "1.0.0"
     key_path = "./keys"
 
-    def __init__(self, context=None, defaults=None, database=None, port=5000):
+    def __init__(self, context=None, defaults=None, database=None,
+                 host="localhost", port=5000):
         from ..classes import ActivityPubBase
+        self.port = port
+        self.host = host
+        ## Put dependent ones first:
+        self.defaults = {
+            "$DOMAIN": "$SCHEME://$HOST:$PORT",
+            "$SCHEME": "https",
+            "$HOST": self.host,
+            "$PORT": self.port,
+            "$UUID": lambda: str(uuid.uuid4()),
+            "$NOW": lambda: (datetime.datetime.utcnow()
+                             .replace(microsecond=0).isoformat() + "Z"),
+            }
+        self.defaults.update(copy.deepcopy(defaults) or self.make_defaults())
         self.callback = lambda box, activity_id: None
         self.context = context
-        self.defaults = defaults or self.make_defaults()
-        self.defaults["$UUID"] = lambda: str(uuid.uuid4())
-        self.defaults["$NOW"] = lambda: datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
         self.database = database
-        self.port = port
         self.config = {}
         self.CSS = ""
         self._static_folder = os.path.abspath("./static")
         self._template_folder = os.path.abspath("./templates")
         self._sass_folder = os.path.abspath("./sass")
+
+        def set_port(self, value):
+            self._port = value
+            self.defaults["$PORT"] = value
+
+        def get_port(self):
+            return self._port
+
+        port = property(get_port, set_port)
+
+        def set_host(self, value):
+            self._host = value
+            self.defaults["$HOST"] = value
+
+        def get_host(self):
+            return self._host
+
+        host = property(get_host, set_host)
 
         def make_wrapper(manager, class_):
             def wrapper(*args, **kwargs):
@@ -212,10 +240,9 @@ class Manager():
 
         A default can be a $-variable, or the name of a "Class.field_name".
         """
+        ## Put dependent ones first:
         return {
-            "$SCHEME": "https",
-            "$HOST": "example.com",
-            "Person.id": "$SCHEME://$HOST/$id",
+            "Person.id": "$DOMAIN/$id",
             "Person.likes": "$id/likes",
             "Person.following": "$id/following",
             "Person.followers": "$id/followers",
@@ -244,7 +271,7 @@ class Manager():
         'hello'
         >>> m.expand_defaults("<p>$TEST</p>")
         '<p>hello</p>'
-        >>> n = m.Note()
+        >>> n = m.Note(attributedTo="test")
         >>> n.ap_id == {"key1": "xxx"}
         True
         """
@@ -262,11 +289,168 @@ class Manager():
                         if hasattr(obj, "ap_" + key[1:]):
                             val = getattr(obj, "ap_" + key[1:])
                         elif "." in key:
-                            val = obj.get_item_from_dotted("ap_" + key[1:])
+                            val = self.get_item_from_dotted("ap_" + key[1:], obj)
                         else:
                             raise Exception("expansion requires %s" % key[1:])
                         string = string.replace(key, str(val))
         return string
+
+    def topological_sort(self, data):
+        """
+
+        >>> manager = Manager()
+        >>> manager.Person(id="alyssa").to_dict()
+        {'@context': 'https://www.w3.org/ns/activitystreams', 'endpoints': {}, 'followers': 'https://localhost:5000/alyssa/followers', 'following': 'https://localhost:5000/alyssa/following', 'id': 'https://localhost:5000/alyssa', 'inbox': 'https://localhost:5000/alyssa/inbox', 'liked': 'https://localhost:5000/alyssa/liked', 'likes': 'https://localhost:5000/alyssa/likes', 'outbox': 'https://localhost:5000/alyssa/outbox', 'type': 'Person', 'url': 'https://localhost:5000/alyssa'}
+        """
+        from functools import reduce
+        # Find all items that don't depend on anything:
+        extra_items_in_deps = reduce(set.union, data.values(), set()) - set(data.keys())
+        # Add empty dependences where needed:
+        data.update({item: set() for item in extra_items_in_deps})
+        while True:
+            ordered = set(item for item, dep in data.items() if not dep)
+            if not ordered:
+                break
+            for item in ordered:
+                yield item
+            data = {item: (dep - ordered)
+                    for item, dep in data.items()
+                    if item not in ordered}
+
+    def build_dependencies_from_item(self, item, s):
+        """
+        Given {"val": "$x"} return set("x")
+        s is a set, returns s with dependencies.
+
+        >>> m = Manager()
+        >>> n = m.Note(attributedTo="test")
+        >>> m.build_dependencies_from_item({"val": "$x"}, set())
+        {'x'}
+        >>> m.build_dependencies_from_item({"key1": {"val": "$x"}}, set())
+        {'x'}
+        >>> s = m.build_dependencies_from_item({"key1": {"val": "$x"},
+        ...                                     "key2": {"key3": "$y"}}, set())
+        >>> "x" in s
+        True
+        >>> "y" in s
+        True
+        >>> len(s)
+        2
+        """
+        if isinstance(item, str):
+            for word in self.parse(item):
+                if word.startswith("$"):
+                    s.add(word[1:])
+        elif isinstance(item, dict):
+            for key in item:
+                self.build_dependencies_from_item(item[key], s)
+        elif isinstance(item, list):
+            for key in item:
+                self.build_dependencies_from_item(key, s)
+        return s
+
+    def replace_items_in_dict(self, dictionary, obj):
+        """
+        Replace the "$x" in {"val": "$x"} with self.ap_x
+
+        >>> manager = Manager()
+        >>> n = manager.Note(attributedTo="test")
+        >>> n.ap_x = 41
+        >>> n.ap_y = 43
+        >>> dictionary = {"key1": {"val": "$x"},
+        ...               "key2": {"key3": "$y"}}
+        >>> manager.replace_items_in_dict(dictionary, n)
+        >>> dictionary
+        {'key1': {'val': 41}, 'key2': {'key3': 43}}
+        """
+        for key in dictionary:
+            if isinstance(dictionary[key], str):
+                if dictionary[key].startswith("$"):
+                    dictionary[key] = getattr(obj, "ap_" + dictionary[key][1:])
+            elif isinstance(dictionary[key], dict):
+                self.replace_items_in_dict(dictionary[key], obj)
+
+    def get_item_from_dotted(self, dotted_word, obj):
+        """
+        Get dictionary item from a dotted-word.
+
+        >>> m = Manager()
+        >>> n = m.Note(attributedTo="test")
+        >>> n.key1 = {"key2": {"key3": 42}}
+        >>> m.get_item_from_dotted("key1.key2.key3", n)
+        42
+        >>> n.ap_key4 = {"key5": {"key6": 43}}
+        >>> m.get_item_from_dotted("key4.key5.key6", n)
+        43
+        """
+        current = {key: getattr(obj, key) for key in dir(obj)}
+        for word in dotted_word.split("."):
+            if "ap_" + word in current:
+                current = current["ap_" + word]
+            elif word in current:
+                current = current[word]
+            else:
+                return None
+        return current
+
+    def fill_in_deep_defaults(self, obj):
+        dependencies = self.build_dependencies(obj)
+        ## Now, replace them in order:
+        for attr_name in self.topological_sort(dependencies):
+            if "$" + attr_name in self.defaults:
+                attr = self.defaults["$" + attr_name]
+            else:
+                if hasattr(obj, "ap_" + attr_name):
+                    attr = getattr(obj, "ap_" + attr_name)
+                elif "." in attr_name:
+                    attr = self.get_item_from_dotted(attr_name, obj)
+                else:
+                    raise Exception("unknown variable: %s" % attr_name)
+            if callable(attr):
+                attr = attr()
+            if attr is None:
+                raise Exception("variable depends on field that is empty: %s" % attr_name)
+            if isinstance(attr, str) and "$" in attr:
+                setattr(obj, attr_name, self.expand_defaults(attr, obj))
+            elif isinstance(attr, dict):
+                ## traverse dict recursively, looking for replacements:
+                self.replace_items_in_dict(attr, obj)
+
+    def fill_in_defaults(self, obj):
+        # Next, fill in field-defaults:
+        for key in self.defaults:
+            # Person.id
+            if isinstance(obj.ap_type, str) and key.startswith(obj.ap_type + "."):
+                attr = self.defaults[key]
+                if callable(attr):
+                    attr = attr()
+                attr_name = "ap_" + key[len(obj.ap_type + "."):]
+                if getattr(obj, attr_name) is None:
+                    setattr(obj, attr_name, attr)
+                elif isinstance(attr, str) and "$" + attr_name[3:] in attr:
+                    ## recursive:
+                    setattr(obj, attr_name,
+                            attr.replace("$" + attr_name[3:], getattr(obj, attr_name)))
+
+    def build_dependencies(self, obj):
+        """
+        Build a dict of name -> set of dependencies.
+        Returns a dict: {"id": set("SCHEME", "DOMAIN"), ...}
+        """
+        dependencies = {}
+        for attr_name in dir(obj):
+            if attr_name.startswith("ap_"):
+                attr = getattr(obj, attr_name)
+                if isinstance(attr, str) and "$" in attr:
+                    parsed = self.parse(attr)
+                    dependencies[attr_name[3:]] = {x[1:].split(".")[0] for x in parsed
+                                                   if x.startswith("$") and x[1:] != attr_name[3:]}
+                elif isinstance(attr, dict):
+                    deps = self.build_dependencies_from_item(attr, set())
+                    for item in deps:
+                        dependencies[attr_name[3:]] = dependencies.get(attr_name[3:], set())
+                        dependencies[attr_name[3:]].add(item)
+        return dependencies
 
     def parse(self, string):
         """
