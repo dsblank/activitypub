@@ -1,3 +1,4 @@
+import datetime
 import inspect
 import binascii
 import os
@@ -100,7 +101,33 @@ class Manager():
     >>> from activitypub.database import ListDatabase
     >>> db = ListDatabase()
     >>> manager = Manager(database=db)
-    >>>
+
+    >>> note = manager.Note(
+    ...         **{'sensitive': False,
+    ...            'attributedTo': 'http://localhost:5005',
+    ...            'cc': ['http://localhost:5005/followers'],
+    ...            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+    ...            'content': '<p>$source.content</p>',
+    ...            'tag': [],
+    ...            'source': {'mediaType': 'text/markdown', 'content': '$temp_text'},
+    ...            'published': '$NOW',
+    ...            'temp_uuid': "$UUID",
+    ...            'temp_text': 'Hello',
+    ...            'id': 'http://localhost:5005/outbox/$temp_uuid/activity',
+    ...            'url': 'http://localhost:5005/note/$temp_uuid'
+    ...         })
+    >>> note.content == '<p>Hello</p>'
+    True
+    >>> note.source == {'mediaType': 'text/markdown', 'content': 'Hello'}
+    True
+    >>> "$temp_uuid" not in note.id
+    True
+    >>> "$temp_uuid" not in note.url
+    True
+    >>> hasattr(note, "ap_temp_text")
+    False
+    >>> hasattr(note, "ap_temp_uuid")
+    False
     """
     app_name = "activitypub"
     version = "1.0.0"
@@ -112,6 +139,7 @@ class Manager():
         self.context = context
         self.defaults = defaults or self.make_defaults()
         self.defaults["$UUID"] = lambda: str(uuid.uuid4())
+        self.defaults["$NOW"] = lambda: datetime.datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
         self.database = database
         self.port = port
         self.config = {}
@@ -207,24 +235,42 @@ class Manager():
     def expand_defaults(self, string, obj=None):
         """
         Expand a string with defaults.
+
+        >>> m = Manager()
+        >>> m.defaults = {"$TEST": "hello",
+        ...               "Note.id": {"key1": "xxx"},
+        ... }
+        >>> m.expand_defaults("$TEST")
+        'hello'
+        >>> m.expand_defaults("<p>$TEST</p>")
+        '<p>hello</p>'
+        >>> n = m.Note()
+        >>> n.ap_id == {"key1": "xxx"}
+        True
         """
         for key in self.defaults:
             if key.startswith("$"):
-                if callable(self.defaults[key]):
-                    string = string.replace(key, self.defaults[key]())
-                else:
-                    string = string.replace(key, self.defaults[key])
+                if key in string:
+                    if callable(self.defaults[key]):
+                        string = string.replace(key, str(self.defaults[key]()))
+                    else:
+                        string = string.replace(key, str(self.defaults[key]))
         if obj:
             for key in self.parse(string):
                 if key.startswith("$"):
-                    if getattr(obj, "ap_" + key[1:]) is None:
-                        raise Exception("expansion requires %s" % key[1:])
-                    string = string.replace(key, getattr(obj, "ap_" + key[1:]))
+                    if key in string:
+                        if hasattr(obj, "ap_" + key[1:]):
+                            val = getattr(obj, "ap_" + key[1:])
+                        elif "." in key:
+                            val = obj.get_item_from_dotted("ap_" + key[1:])
+                        else:
+                            raise Exception("expansion requires %s" % key[1:])
+                        string = string.replace(key, str(val))
         return string
 
     def parse(self, string):
         """
-        Parse a string delimited by non-alpha, non-$ symbols.
+        Parse a string delimited by non-alphanum, non-$/_ symbols.
 
         >>> from activitypub.manager import Manager
         >>> m = Manager()
@@ -234,7 +280,7 @@ class Manager():
         retval = []
         current = []
         for s in string:
-            if s.isalpha() or (s in ["$"] and len(current) == 0):
+            if (s.isalnum() or s in "_.") or (s in ["$"] and len(current) == 0):
                 current.append(s)
             else:
                 if current:

@@ -1,4 +1,5 @@
 import mimetypes
+import copy
 
 class ActivityPubBase():
     CLASSES = {}
@@ -17,7 +18,7 @@ class ActivityPubBase():
             for key in self.manager.defaults:
                 # Person.id
                 if key.startswith(self.ap_type + "."):
-                    attr = self.manager.defaults[key]
+                    attr = copy.deepcopy(self.manager.defaults[key])
                     if callable(attr):
                         attr = attr()
                     attr_name = "ap_" + key[len(self.ap_type + "."):]
@@ -27,26 +28,113 @@ class ActivityPubBase():
                         ## recursive:
                         setattr(self, attr_name,
                                 attr.replace("$" + attr_name[3:], getattr(self, attr_name)))
-            ## Now expand the field defaults:
+            ## Now expand the field defaults, and build dependencies:
             dependencies = {}
             for attr_name in dir(self):
                 if attr_name.startswith("ap_"):
                     attr = getattr(self, attr_name)
                     if isinstance(attr, str) and "$" in attr:
-                        dependencies[attr_name[3:]] = {x[1:] for x in self.manager.parse(attr)
+                        parsed = self.manager.parse(attr)
+                        dependencies[attr_name[3:]] = {x[1:].split(".")[0] for x in parsed
                                                        if x.startswith("$") and x[1:] != attr_name[3:]}
+                    elif isinstance(attr, dict):
+                        deps = self.build_dependencies_from_dict(attr, set())
+                        for item in deps:
+                            dependencies[attr_name[3:]] = dependencies.get(key, set())
+                            dependencies[attr_name[3:]].add(item)
             ## Now, replace them in order:
             for attr_name in self.topological_sort(dependencies):
                 if "$" + attr_name in self.manager.defaults:
-                    attr = self.manager.defaults["$" + attr_name]
+                    attr = copy.deepcopy(self.manager.defaults["$" + attr_name])
                 else:
-                    attr = getattr(self, "ap_" + attr_name)
+                    if hasattr(self, "ap_" + attr_name):
+                        attr = getattr(self, "ap_" + attr_name)
+                    elif "." in attr_name:
+                        attr = self.get_item_from_dotted(attr_name)
+                    else:
+                        raise Exception("unknown variable: %s" % attr_name)
                 if callable(attr):
                     attr = attr()
                 if attr is None:
                     raise Exception("variable depends on field that is empty: %s" % attr_name)
                 if isinstance(attr, str) and "$" in attr:
                     setattr(self, attr_name, self.manager.expand_defaults(attr, self))
+                elif isinstance(attr, dict):
+                    ## traverse dict recursively, looking for replacements:
+                    self.replace_items_in_dict(attr)
+            ## Finally, remove any temporary variables:
+            for attr_name in dir(self):
+                if attr_name.startswith("ap_temp"):
+                    del self.__dict__[attr_name]
+
+    def get_item_from_dotted(self, dotted_word):
+        """
+        Get dictionary item from a dotted-word.
+
+        >>> n = Note()
+        >>> n.key1 = {"key2": {"key3": 42}}
+        >>> n.get_item_from_dotted("key1.key2.key3")
+        42
+        >>> n.ap_key4 = {"key5": {"key6": 43}}
+        >>> n.get_item_from_dotted("key4.key5.key6")
+        43
+        """
+        current = {key: getattr(self, key) for key in dir(self)}
+        for word in dotted_word.split("."):
+            if "ap_" + word in current:
+                current = current["ap_" + word]
+            elif word in current:
+                current = current[word]
+            else:
+                return None
+        return current
+
+    def build_dependencies_from_dict(self, dictionary, s):
+        """
+        Given {"val": "$x"} return set("x")
+        s is a set, returns s with dependencies.
+
+        >>> n = Note()
+        >>> n.build_dependencies_from_dict({"val": "$x"}, set())
+        {'x'}
+        >>> n.build_dependencies_from_dict({"key1": {"val": "$x"}}, set())
+        {'x'}
+        >>> s = n.build_dependencies_from_dict({"key1": {"val": "$x"},
+        ...                                     "key2": {"key3": "$y"}}, set())
+        >>> "x" in s
+        True
+        >>> "y" in s
+        True
+        >>> len(s)
+        2
+        """
+        for key in dictionary:
+            if isinstance(dictionary[key], str):
+                if dictionary[key].startswith("$"):
+                    s.add(dictionary[key][1:])
+            elif isinstance(dictionary[key], dict):
+                self.build_dependencies_from_dict(dictionary[key], s)
+        return s
+
+    def replace_items_in_dict(self, dictionary):
+        """
+        Replace the "$x" in {"val": "$x"} with self.ap_x
+
+        >>> n = Note()
+        >>> n.ap_x = 41
+        >>> n.ap_y = 43
+        >>> dictionary = {"key1": {"val": "$x"},
+        ...               "key2": {"key3": "$y"}}
+        >>> n.replace_items_in_dict(dictionary)
+        >>> dictionary
+        {'key1': {'val': 41}, 'key2': {'key3': 43}}
+        """
+        for key in dictionary:
+            if isinstance(dictionary[key], str):
+                if dictionary[key].startswith("$"):
+                    dictionary[key] = getattr(self, "ap_" + dictionary[key][1:])
+            elif isinstance(dictionary[key], dict):
+                self.replace_items_in_dict(dictionary[key])
 
     def topological_sort(self, data):
         """
