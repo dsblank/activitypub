@@ -16,7 +16,7 @@ Work in progress!
 
 ![Demo](images/demo.png)
 
-To run, see [installation](../README.md) and then:
+To run, see [installation](../../README.md) and then:
 
 1. Edit app.py for your own database/framework combination.
 
