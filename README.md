@@ -104,3 +104,7 @@ activitypub is targeting the following web frameworks:
 Others can be supported. Please ask!
 
 The activitypub webservice API is based on Flask's.
+
+## Applications
+
+* [Blog](https://github.com/dsblank/activitypub/tree/master/apps/blog)
