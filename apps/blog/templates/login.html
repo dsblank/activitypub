@@ -1,0 +1,47 @@
+{% extends "layout.html" %}
+{% import 'utils.html' as utils with context %}
+{% block title %}Login - {{ config.NAME }}{% endblock %}
+{% block headers %}
+<style>
+#login-container {
+height: 90%;
+display: grid;
+}
+#login-form {
+margin:auto;
+display:inline;
+}
+</style>
+{% endblock %}
+{% block content %}
+<div id="login-container">
+
+<form id="login-form" method="POST">
+	 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+	<input type="password" name="pass" placeholder="password">
+	{% if u2f_enabled %}
+	<input type="hidden" name="resp" id="sig-payload" value="">
+	<input type="submit" value="waiting for u2f" disabled>
+	{% else %}
+	<input type="submit" value="login">
+	{% endif %}
+</form>
+
+</div>
+{% if u2f_enabled %}
+<script>
+var p = {{ payload | tojson }};
+if (p) {
+u2f.sign(p.appId, p.challenge, p.registeredKeys, function(resp) {
+if (resp.errorCode) {
+    console.log(resp)
+} else {
+document.getElementById('sig-payload').value = JSON.stringify(resp)
+document.getElementById('login-form').submit()
+}
+
+})
+}
+</script>
+{% endif %}
+{% endblock %}

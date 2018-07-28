@@ -1,0 +1,23 @@
+{% extends "layout.html" %}
+{% import 'utils.html' as utils with context %}
+{% block title %}Followers - {{ config.NAME }}{% endblock %}
+{% block header %}
+{% endblock %}
+{% block content %}
+<div id="container">
+{% include "header.html" %}
+
+<div id="followers">
+	{% for follower in followers_data %}
+    <div style="height: 100px;">
+	{{ utils.display_actor_inline(follower, size=80) }}
+    </div>
+	{% endfor %}
+    {{ utils.display_pagination(older_than, newer_than) }}
+</div>
+
+</div>
+{% endblock %}
+{% block links %}
+<link rel="alternate" href="{{ config.BASE_URL }}/followers" type="application/activity+json">
+{{ utils.display_pagination_links(older_than, newer_than) }}{% endblock %}
