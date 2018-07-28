@@ -104,7 +104,7 @@ class Manager():
 
     >>> note = manager.Note(
     ...         **{'sensitive': False,
-    ...            'attributedTo': 'http://localhost:5005',
+    ...            'attributedTo': 'http://localhost:5000',
     ...            'cc': ['http://localhost:5005/followers'],
     ...            'to': ['https://www.w3.org/ns/activitystreams#Public'],
     ...            'content': '<p>$source.content</p>',
@@ -141,10 +141,11 @@ class Manager():
         ## Put dependent ones first:
         self.defaults = {
             "$DOMAIN": "$SCHEME://$HOST:$PORT",
-            "$SCHEME": "https",
+            "$SCHEME": "http",
             "$HOST": self.host,
             "$PORT": self.port,
-            "$UUID": lambda: str(uuid.uuid4()),
+            "$UUID4": lambda: str(uuid.uuid4()),
+            "$UUID": lambda: binascii.hexlify(os.urandom(8)).decode("utf-8"),
             "$NOW": lambda: (datetime.datetime.utcnow()
                              .replace(microsecond=0).isoformat() + "Z"),
             }
@@ -236,7 +237,7 @@ class Manager():
         >>> m = Manager()
         >>> n = m.Note(attributedTo="alyssa", id="23")
         >>> n.to_dict()
-        {'@context': 'https://www.w3.org/ns/activitystreams', 'attributedTo': 'alyssa', 'id': 'alyssa/note/23', 'type': 'Note'}
+        {'@context': 'https://www.w3.org/ns/activitystreams', 'attributedTo': 'alyssa', 'id': '23', 'type': 'Note'}
 
         A default can be a $-variable, or the name of a "Class.field_name".
         """
@@ -250,7 +251,6 @@ class Manager():
             "Person.inbox": "$id/inbox",
             "Person.outbox": "$id/outbox",
             "Person.url": "$id",
-            "Note.id": "$attributedTo/note/$id",
         }
 
     def user_agent(self):
@@ -292,7 +292,10 @@ class Manager():
                             val = self.get_item_from_dotted("ap_" + key[1:], obj)
                         else:
                             raise Exception("expansion requires %s" % key[1:])
-                        string = string.replace(key, str(val))
+                        if string == key:
+                            string = val
+                        else:
+                            string = string.replace(key, str(val))
         return string
 
     def topological_sort(self, data):
@@ -300,7 +303,7 @@ class Manager():
 
         >>> manager = Manager()
         >>> manager.Person(id="alyssa").to_dict()
-        {'@context': 'https://www.w3.org/ns/activitystreams', 'endpoints': {}, 'followers': 'https://localhost:5000/alyssa/followers', 'following': 'https://localhost:5000/alyssa/following', 'id': 'https://localhost:5000/alyssa', 'inbox': 'https://localhost:5000/alyssa/inbox', 'liked': 'https://localhost:5000/alyssa/liked', 'likes': 'https://localhost:5000/alyssa/likes', 'outbox': 'https://localhost:5000/alyssa/outbox', 'type': 'Person', 'url': 'https://localhost:5000/alyssa'}
+        {'@context': 'https://www.w3.org/ns/activitystreams', 'endpoints': {}, 'followers': 'http://localhost:5000/alyssa/followers', 'following': 'http://localhost:5000/alyssa/following', 'id': 'http://localhost:5000/alyssa', 'inbox': 'http://localhost:5000/alyssa/inbox', 'liked': 'http://localhost:5000/alyssa/liked', 'likes': 'http://localhost:5000/alyssa/likes', 'outbox': 'http://localhost:5000/alyssa/outbox', 'type': 'Person', 'url': 'http://localhost:5000/alyssa'}
         """
         from functools import reduce
         # Find all items that don't depend on anything:

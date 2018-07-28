@@ -156,7 +156,7 @@ class ObjectId(object):
         >>> later = ObjectId.from_datetime(gen_time)
         >>> result = m.database.activities.find({"_id": {"$lt": later}})
         >>> result # doctest: +ELLIPSIS
-        [{'@context': 'https://www.w3.org/ns/activitystreams', '_id': ObjectId('...'), 'attributedTo': 'alyssa', 'id': 'alyssa/note/$attributedTo/note/$id', 'type': 'Note'}]
+        [{'@context': 'https://www.w3.org/ns/activitystreams', '_id': ObjectId('...'), 'attributedTo': 'alyssa', 'type': 'Note'}]
 
         :Parameters:
           - `generation_time`: :class:`~datetime.datetime` to be used
