@@ -26,9 +26,9 @@ from activitypub.database import *
 ## Pick one:
 database = RedisDatabase("redis://localhost:6379/0")
 #database = MongoDatabase("mongodb://localhost:27017", "dsblank_localhost:5000")
-#database = ListDatabase(),
-#database = SQLDatabase("sqlite://"),
-#datavbase = SQLDatabase("sqlite:///sqlite.db"),
+#database = ListDatabase()
+#database = SQLDatabase("sqlite://")
+#database = SQLDatabase("sqlite:///sqlite.db")
 
 """
 ### Some fake data:
