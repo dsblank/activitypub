@@ -26,9 +26,23 @@ from activitypub.database import *
 ## Pick one:
 database = RedisDatabase("redis://localhost:6379/0")
 #database = MongoDatabase("mongodb://localhost:27017", "dsblank_localhost:5000")
-#database = ListDatabase(),
-#database = SQLDatabase("sqlite://"),
-#datavbase = SQLDatabase("sqlite:///sqlite.db"),
+#database = ListDatabase()
+#database = SQLDatabase("sqlite://")
+#database = SQLDatabase("sqlite:///sqlite.db")
+
+manager = Manager(database=database)
+manager.setup_css()
+## FIXME: get rid of all of these:
+manager.config.update({
+    "ME": {
+        "url": "https://example.com",
+        "icon": {"url": "https://example.com"},
+        "icon_url": 'https://cs.brynmawr.edu/~dblank/images/doug-sm-orig.jpg',
+        "summary": "I'm just me."},
+    "NAME": "ActivityPub Blog",
+    "ID": "http://localhost:%s/dsblank" % manager.port,
+    "BASE_URL": "http://localhost:%s" % manager.port,
+    })
 
 """
 ### Some fake data:
@@ -86,23 +100,9 @@ for i in range(10):
             'remote_id': '$DOMAIN/outbox/%s' % note.temp_uuid,
             'meta': {'undo': False, 'deleted': False},
             })
-    
+
     database.activities.insert_one(message.to_dict())
 """
-
-manager = Manager(database=database)
-manager.setup_css()
-## FIXME: get rid of all of these:
-manager.config.update({
-    "ME": {
-        "url": "https://example.com",
-        "icon": {"url": "https://example.com"},
-        "icon_url": 'https://cs.brynmawr.edu/~dblank/images/doug-sm-orig.jpg',
-        "summary": "I'm just me."},
-    "NAME": "ActivityPub Blog",
-    "ID": "http://localhost:%s/dsblank" % manager.port,
-    "BASE_URL": "http://localhost:%s" % manager.port, 
-    })
 
 #### The routes:
 
@@ -241,7 +241,7 @@ def paginated_query(self, db, q, limit=5, sort_key="_id"):
         older_than = str(outbox_data[-1]["_id"])
     return outbox_data, older_than, newer_than
 
-    
+
 @app.context_processor
 def context_processor(self):
     q = {
